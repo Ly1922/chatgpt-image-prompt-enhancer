@@ -55,8 +55,12 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p><strong>拖拽多张参考图至此</strong> 或点击批量上传</p>
-            <span class="sp-dropzone-sub">支持同时多选、截图连续粘贴 (Ctrl+V，最多6张)</span>
+            <p><strong>参考图上传与融合 (最多 6 张)</strong></p>
+            <div style="display: flex; gap: 8px; margin: 6px 0; justify-content: center; flex-wrap: wrap;">
+              <button type="button" class="sp-btn-sm sp-btn-sm-primary" id="sp-btn-paste-clipboard" title="直接从剪贴板读取截图并上传">📋 点击粘贴截图</button>
+              <button type="button" class="sp-btn-sm" id="sp-btn-browse-file" title="打开电脑文件选择">📁 选择本地图片</button>
+            </div>
+            <span class="sp-dropzone-sub">或在任意位置直接按 <strong>Ctrl+V</strong> 随时连续粘贴截图</span>
           </div>
           <input type="file" id="sp-file-input" accept="image/*" multiple style="display:none;" />
         </div>
@@ -64,16 +68,18 @@
         <div class="sp-img-gallery" id="sp-img-gallery" style="display:none;">
           <div class="sp-gallery-header">
             <span id="sp-gallery-title">已载入参考图 (0/6)</span>
-            <div style="display: flex; gap: 8px;">
-              <button type="button" class="sp-text-btn" id="sp-open-sketch">✏️ 涂鸦板</button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button type="button" class="sp-btn-sm sp-btn-sm-primary" id="sp-gallery-paste-btn" title="点击继续粘贴剪贴板截图">📋 粘贴截图</button>
+              <button type="button" class="sp-btn-sm" id="sp-gallery-browse-btn" title="选择本地文件">📁 选图</button>
+              <button type="button" class="sp-text-btn" id="sp-open-sketch">✏️ 涂鸦</button>
               <button type="button" class="sp-text-btn-danger" id="sp-gallery-clear">清空</button>
             </div>
           </div>
           <div class="sp-gallery-list" id="sp-gallery-list">
             <!-- Dynamically populated -->
-            <div class="sp-gallery-add" id="sp-gallery-add-btn" title="添加更多参考图">
+            <div class="sp-gallery-add" id="sp-gallery-add-btn" title="点击粘贴截图或选择图片 (支持直接按 Ctrl+V)">
               <span style="font-size: 16px;">+</span>
-              <span>加图</span>
+              <span>粘贴/加图</span>
             </div>
           </div>
         </div>

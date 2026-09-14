@@ -352,22 +352,31 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <span>拖入多张参考图、点击上传，或直接按 Ctrl+V 随时连续粘贴 (最多6张)</span>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-weight:600;">参考图上传与融合 (最多 6 张)</span>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-btn-paste-clipboard" title="直接从剪贴板读取截图并上传">📋 点击粘贴截图</button>
+                <button type="button" class="pm-btn-sm" id="pm-btn-browse-file" title="打开电脑文件选择">📁 选择本地图片</button>
+              </div>
+              <span style="font-size:11px; opacity:0.65;">或直接按 <strong>Ctrl+V</strong> 随时连续粘贴截图</span>
+            </div>
             <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
           </div>
 
           <div class="pm-img-gallery" id="pm-img-gallery">
             <div class="pm-gallery-header">
               <span id="pm-gallery-title">已添加参考图 (0/6)</span>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-gallery-paste-btn" title="点击继续粘贴剪贴板截图">📋 粘贴截图</button>
+                <button type="button" class="pm-btn-sm" id="pm-gallery-browse-btn" title="选择本地文件">📁 选图</button>
                 <button type="button" class="pm-btn-sm" id="pm-open-sketch-btn" title="随手涂鸦空间布局">✏️ 涂鸦草图</button>
                 <button type="button" class="pm-gallery-clear" id="pm-gallery-clear">清空全部</button>
               </div>
             </div>
             <div class="pm-gallery-list" id="pm-gallery-list">
-              <div class="pm-gallery-add" id="pm-gallery-add-btn" title="继续添加参考图 (支持随时按 Ctrl+V)">
+              <div class="pm-gallery-add" id="pm-gallery-add-btn" title="点击粘贴截图或选择图片 (支持直接按 Ctrl+V)">
                 <span style="font-size: 18px; line-height: 1;">+</span>
-                <span>加图</span>
+                <span>粘贴/加图</span>
               </div>
             </div>
           </div>
@@ -559,8 +568,84 @@
     const galleryAddBtn = modal.querySelector('#pm-gallery-add-btn');
     const openSketchBtn = modal.querySelector('#pm-open-sketch-btn');
 
-    dropzone.addEventListener('click', () => fileInput.click());
-    galleryAddBtn.addEventListener('click', () => fileInput.click());
+    const btnPasteClipboard = modal.querySelector('#pm-btn-paste-clipboard');
+    const btnBrowseFile = modal.querySelector('#pm-btn-browse-file');
+    const galleryPasteBtn = modal.querySelector('#pm-gallery-paste-btn');
+    const galleryBrowseBtn = modal.querySelector('#pm-gallery-browse-btn');
+
+    async function pasteFromClipboardDirectly() {
+      if (attachedImages.length >= 6) {
+        showToast('⚠️ 参考图已达上限 (最多6张)');
+        return;
+      }
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          showToast('请直接按下键盘 Ctrl+V 连续粘贴截图');
+          return;
+        }
+        const clipboardItems = await navigator.clipboard.read();
+        const imageFiles = [];
+        for (const item of clipboardItems) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            imageFiles.push(blob);
+          }
+        }
+        if (imageFiles.length > 0) {
+          handleImageFilesBatch(imageFiles);
+        } else {
+          showToast('⚠️ 剪贴板未检测到截图，请先截图 (Win+Shift+S / 复制图片) 再点击');
+        }
+      } catch (err) {
+        console.warn('Direct clipboard read error:', err);
+        showToast('请直接按下键盘 Ctrl+V 粘贴截图');
+      }
+    }
+
+    btnPasteClipboard?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pasteFromClipboardDirectly();
+    });
+
+    galleryPasteBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pasteFromClipboardDirectly();
+    });
+
+    btnBrowseFile?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    galleryBrowseBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    dropzone.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      fileInput.click();
+    });
+
+    galleryAddBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (navigator.clipboard && navigator.clipboard.read) {
+        try {
+          const items = await navigator.clipboard.read();
+          const hasImg = items.some(it => it.types.some(t => t.startsWith('image/')));
+          if (hasImg) {
+            await pasteFromClipboardDirectly();
+            return;
+          }
+        } catch (_) {}
+      }
+      fileInput.click();
+    });
+
+    modal.addEventListener('mouseenter', () => {
+      modal.focus();
+    });
 
     fileInput.addEventListener('change', (e) => {
       handleImageFilesBatch(e.target.files);

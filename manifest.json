@@ -27,7 +27,8 @@
     "storage",
     "sidePanel",
     "contextMenus",
-    "activeTab"
+    "activeTab",
+    "clipboardRead"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",

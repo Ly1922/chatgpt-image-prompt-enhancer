@@ -127,9 +127,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // Buttons for direct clipboard paste & local file selection
+  const btnPasteClipboard = document.getElementById('sp-btn-paste-clipboard');
+  const btnBrowseFile = document.getElementById('sp-btn-browse-file');
+  const galleryPasteBtn = document.getElementById('sp-gallery-paste-btn');
+  const galleryBrowseBtn = document.getElementById('sp-gallery-browse-btn');
+
+  // Direct clipboard reader (one-click paste without needing keyboard)
+  async function pasteFromClipboardDirectly() {
+    if (attachedImages.length >= 6) {
+      showToast('⚠️ 参考图已达上限 (最多6张)');
+      return;
+    }
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast('请直接按下键盘 Ctrl+V 连续粘贴截图');
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      const imageFiles = [];
+      for (const item of clipboardItems) {
+        const imgType = item.types.find(t => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          imageFiles.push(blob);
+        }
+      }
+      if (imageFiles.length > 0) {
+        handleImageFilesBatch(imageFiles);
+      } else {
+        showToast('⚠️ 剪贴板未检测到截图，请先截图 (Win+Shift+S / 复制图片) 再点击');
+      }
+    } catch (err) {
+      console.warn('Direct clipboard read failed:', err);
+      showToast('请直接按下键盘 Ctrl+V 粘贴截图');
+    }
+  }
+
+  btnPasteClipboard?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pasteFromClipboardDirectly();
+  });
+
+  galleryPasteBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pasteFromClipboardDirectly();
+  });
+
+  btnBrowseFile?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+
+  galleryBrowseBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+
   // Image Drop & File Input
-  dropzone.addEventListener('click', () => fileInput.click());
-  galleryAddBtn.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    fileInput.click();
+  });
+
+  galleryAddBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    // Try pasting from clipboard first if clipboard has an image
+    if (navigator.clipboard && navigator.clipboard.read) {
+      try {
+        const items = await navigator.clipboard.read();
+        const hasImg = items.some(it => it.types.some(t => t.startsWith('image/')));
+        if (hasImg) {
+          await pasteFromClipboardDirectly();
+          return;
+        }
+      } catch (_) {}
+    }
+    fileInput.click();
+  });
 
   fileInput.addEventListener('change', (e) => {
     handleImageFilesBatch(e.target.files);
@@ -151,6 +226,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.dataTransfer.files) {
       handleImageFilesBatch(e.dataTransfer.files);
     }
+  });
+
+  // Auto focus on mouseenter so Ctrl+V works immediately without manual clicking
+  window.addEventListener('mouseenter', () => {
+    window.focus();
   });
 
   // Global Capture-Phase Paste for Sidepanel
