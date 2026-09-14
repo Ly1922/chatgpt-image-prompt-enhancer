@@ -1021,4 +1021,128 @@ button:hover > .pm-inchat-btn-wrap,
   flex-wrap: wrap;
 }
 
+/* Reverse Prompt Tool Button Highlight */
+.pm-tool-btn-highlight {
+  background: rgba(16, 163, 127, 0.12) !important;
+  color: #10a37f !important;
+  border: 1px solid rgba(16, 163, 127, 0.35) !important;
+  font-weight: 600 !important;
+  animation: pmPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes pmPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); background: rgba(16, 163, 127, 0.2); }
+}
+
+/* Interactive Camera Viewfinder */
+.pm-viewfinder-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.pm-viewfinder-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #18181b;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+}
+
+.pm-vf-line {
+  position: absolute;
+  background: rgba(255, 215, 0, 0.25);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pm-vf-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+}
+.pm-vf-v.line-1 { left: 33.33%; }
+.pm-vf-v.line-2 { left: 66.66%; }
+
+.pm-vf-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+.pm-vf-h.line-1 { top: 33.33%; }
+.pm-vf-h.line-2 { top: 66.66%; }
+
+.pm-vf-zone {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  z-index: 3;
+}
+
+.pm-vf-zone:hover {
+  background: rgba(16, 163, 127, 0.22);
+}
+
+.pm-vf-zone.active {
+  background: rgba(16, 163, 127, 0.38);
+  box-shadow: inset 0 0 0 1.5px #10a37f;
+}
+
+.pm-vf-badge {
+  font-size: 10px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  transition: all 0.18s;
+}
+
+.pm-vf-zone.active .pm-vf-badge {
+  background: #10a37f;
+  font-weight: 600;
+}
+
+.pm-vf-tip {
+  font-size: 10px;
+  color: inherit;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.pm-comp-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  background: rgba(128, 128, 128, 0.05);
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pm-comp-pill:hover {
+  border-color: #10a37f;
+  color: inherit;
+}
+
+.pm-comp-pill.active {
+  background: #10a37f;
+  color: #fff;
+  border-color: #10a37f;
+  font-weight: 600;
+}
+
+
 

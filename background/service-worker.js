@@ -10,17 +10,24 @@ chrome.runtime.onInstalled.addListener(() => {
     });
   }
 
-  // Create Context Menu for Images
+  // Create Context Menus for Images
   chrome.contextMenus.create({
-    id: 'enhance-image-prompt',
-    title: '✨ 提取此图灵感并生成 ChatGPT 生图提示词',
+    id: 'reverse-image-prompt',
+    title: '🔍 识图反推生图提示词 (Reverse Prompt)',
+    contexts: ['image']
+  });
+
+  chrome.contextMenus.create({
+    id: 'add-reference-image',
+    title: '🖼️ 导入为生图参考图 (Add Reference)',
     contexts: ['image']
   });
 });
 
 // Handle Context Menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'enhance-image-prompt' && info.srcUrl) {
+  if (info.srcUrl && (info.menuItemId === 'reverse-image-prompt' || info.menuItemId === 'add-reference-image' || info.menuItemId === 'enhance-image-prompt')) {
+    const isDescribe = info.menuItemId === 'reverse-image-prompt' || info.menuItemId === 'enhance-image-prompt';
     // Open side panel in current window
     if (chrome.sidePanel && tab && tab.windowId) {
       await chrome.sidePanel.open({ windowId: tab.windowId });
@@ -28,10 +35,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       setTimeout(() => {
         chrome.runtime.sendMessage({
           action: 'LOAD_IMAGE_FROM_URL',
-          imageUrl: info.srcUrl
+          imageUrl: info.srcUrl,
+          autoDescribe: isDescribe
         }).catch(() => {
           // In case side panel was just opened and listener is not ready, store in storage
-          chrome.storage.local.set({ pendingImageUrl: info.srcUrl });
+          chrome.storage.local.set({
+            pendingImageUrl: info.srcUrl,
+            pendingAutoDescribe: isDescribe
+          });
         });
       }, 500);
     }

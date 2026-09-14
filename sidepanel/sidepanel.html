@@ -80,6 +80,9 @@
             <button type="button" class="sp-tool-btn" id="sp-btn-browse-file" title="选择本地图片文件">
               📁 选图
             </button>
+            <button type="button" class="sp-tool-btn sp-tool-btn-highlight" id="sp-btn-reverse-prompt" title="一键逆向反推参考图提示词" style="display:none;">
+              🔍 识图反推
+            </button>
             <input type="file" id="sp-file-input" accept="image/*" multiple style="display:none;" />
           </div>
           <span class="sp-img-count" id="sp-gallery-title" style="display:none;">(0/6)</span>
@@ -89,12 +92,17 @@
       <!-- Compact Parameter Capsule Strip (One Single Line!) -->
       <div class="sp-capsule-strip">
         <button type="button" class="sp-capsule-btn active" id="sp-chip-ratio" title="点击更改画幅">
-          <span id="sp-chip-ratio-text">📐 16:9 宽幅</span>
+          <span id="sp-chip-ratio-text">📐 16:9</span>
+          <span class="sp-chevron">▾</span>
+        </button>
+
+        <button type="button" class="sp-capsule-btn" id="sp-chip-comp" title="点击配置电影级构图与取景">
+          <span id="sp-chip-comp-text">🎬 构图</span>
           <span class="sp-chevron">▾</span>
         </button>
 
         <button type="button" class="sp-capsule-btn active" id="sp-chip-style" title="点击更改镜头风格">
-          <span id="sp-chip-style-text">🎨 电影级写实</span>
+          <span id="sp-chip-style-text">🎨 电影写实</span>
           <span class="sp-chevron">▾</span>
         </button>
 
@@ -102,6 +110,49 @@
           <span id="sp-chip-avoid-text">🚫 避坑 (2)</span>
           <span class="sp-chevron">▾</span>
         </button>
+      </div>
+
+      <!-- Popover 1.5: Composition & Viewfinder -->
+      <div class="sp-popover" id="sp-popover-comp" style="display:none;">
+        <div class="sp-popover-title">
+          <span>🎬 电影级取景器与空间构图</span>
+          <span class="sp-popover-close">✕</span>
+        </div>
+
+        <!-- Interactive 16:9 Viewfinder Canvas/Box -->
+        <div class="sp-viewfinder-wrap">
+          <div class="sp-viewfinder-screen" id="sp-viewfinder-screen">
+            <div class="sp-vf-line sp-vf-v line-1"></div>
+            <div class="sp-vf-line sp-vf-v line-2"></div>
+            <div class="sp-vf-line sp-vf-h line-1"></div>
+            <div class="sp-vf-line sp-vf-h line-2"></div>
+
+            <!-- Clickable Interactive Zones -->
+            <div class="sp-vf-zone zone-left" data-comp="thirds-left" title="三分法则居左 (右侧叙事留白)">
+              <span class="sp-vf-badge">三分居左</span>
+            </div>
+            <div class="sp-vf-zone zone-center" data-comp="symmetry-center" title="正中心对称 (韦斯·安德森)">
+              <span class="sp-vf-badge">居中对称</span>
+            </div>
+            <div class="sp-vf-zone zone-right" data-comp="thirds-right" title="三分法则居右 (左侧故事纵深)">
+              <span class="sp-vf-badge">三分居右</span>
+            </div>
+          </div>
+          <div class="sp-vf-tip">点击上方模拟相机取景框区域，直接定位画面主体</div>
+        </div>
+
+        <!-- Classic Composition Archetype Chips -->
+        <div class="sp-popover-pills" id="sp-comp-group" style="margin-top: 8px;">
+          <button type="button" class="sp-comp-pill active" data-comp="auto">✨ 智能构图</button>
+          <button type="button" class="sp-comp-pill" data-comp="thirds-left">📐 三分居左</button>
+          <button type="button" class="sp-comp-pill" data-comp="symmetry-center">🎯 居中对称</button>
+          <button type="button" class="sp-comp-pill" data-comp="thirds-right">📐 三分居右</button>
+          <button type="button" class="sp-comp-pill" data-comp="framing">🖼️ 框架画中画</button>
+          <button type="button" class="sp-comp-pill" data-comp="low-angle">⚡ 英雄仰角</button>
+          <button type="button" class="sp-comp-pill" data-comp="high-aerial">🦅 俯瞰平铺</button>
+          <button type="button" class="sp-comp-pill" data-comp="minimalist-space">🍃 极简大留白</button>
+          <button type="button" class="sp-comp-pill" data-comp="diagonal-lines">⚡ 对角线透视</button>
+        </div>
       </div>
 
       <!-- Popover 1: Aspect Ratio -->

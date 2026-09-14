@@ -10,6 +10,8 @@
   let attachedImages = []; // Array of base64 strings
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
+  let activeAspectRatio = '16:9';
+  let activeComposition = 'auto';
   let activeAvoidTags = [
     '无乱码文字或水印 (no text artifacts/watermarks)',
     '肢体结构正常手部精细 (anatomically correct hands and fingers)'
@@ -382,6 +384,9 @@
                 <button type="button" class="pm-tool-btn" id="pm-btn-browse-file" title="选择本地图片文件">
                   📁 选图
                 </button>
+                <button type="button" class="pm-tool-btn pm-tool-btn-highlight" id="pm-btn-reverse-prompt" title="一键逆向反推参考图提示词" style="display:none;">
+                  🔍 识图反推
+                </button>
                 <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
               </div>
               <span class="pm-img-count" id="pm-gallery-title" style="display:none;">(0/6)</span>
@@ -391,12 +396,17 @@
           <!-- Compact Parameter Capsule Strip (One Single Line!) -->
           <div class="pm-capsule-strip">
             <button type="button" class="pm-capsule-btn active" id="pm-chip-ratio" title="点击更改画幅">
-              <span id="pm-chip-ratio-text">📐 16:9 宽幅</span>
+              <span id="pm-chip-ratio-text">📐 16:9</span>
+              <span class="pm-chevron">▾</span>
+            </button>
+
+            <button type="button" class="pm-capsule-btn" id="pm-chip-comp" title="点击配置电影级构图与取景">
+              <span id="pm-chip-comp-text">🎬 构图</span>
               <span class="pm-chevron">▾</span>
             </button>
 
             <button type="button" class="pm-capsule-btn active" id="pm-chip-style" title="点击更改镜头风格">
-              <span id="pm-chip-style-text">🎨 电影级写实</span>
+              <span id="pm-chip-style-text">🎨 电影写实</span>
               <span class="pm-chevron">▾</span>
             </button>
 
@@ -418,6 +428,49 @@
               <button type="button" class="pm-ratio-pill" data-ratio="9:16">9:16 竖版壁纸</button>
               <button type="button" class="pm-ratio-pill" data-ratio="4:3">4:3 经典摄影</button>
               <button type="button" class="pm-ratio-pill" data-ratio="21:9">21:9 宽银幕电影</button>
+            </div>
+          </div>
+
+          <!-- Popover 1.5: Composition & Viewfinder -->
+          <div class="pm-popover" id="pm-popover-comp" style="display:none;">
+            <div class="pm-popover-title">
+              <span>🎬 电影级取景器与空间构图</span>
+              <span class="pm-popover-close">✕</span>
+            </div>
+
+            <!-- Interactive 16:9 Viewfinder Box -->
+            <div class="pm-viewfinder-wrap">
+              <div class="pm-viewfinder-screen" id="pm-viewfinder-screen">
+                <div class="pm-vf-line pm-vf-v line-1"></div>
+                <div class="pm-vf-line pm-vf-v line-2"></div>
+                <div class="pm-vf-line pm-vf-h line-1"></div>
+                <div class="pm-vf-line pm-vf-h line-2"></div>
+
+                <!-- Clickable Interactive Zones -->
+                <div class="pm-vf-zone zone-left" data-comp="thirds-left" title="三分法则居左 (右侧叙事留白)">
+                  <span class="pm-vf-badge">三分居左</span>
+                </div>
+                <div class="pm-vf-zone zone-center" data-comp="symmetry-center" title="正中心对称 (韦斯·安德森)">
+                  <span class="pm-vf-badge">居中对称</span>
+                </div>
+                <div class="pm-vf-zone zone-right" data-comp="thirds-right" title="三分法则居右 (左侧故事纵深)">
+                  <span class="pm-vf-badge">三分居右</span>
+                </div>
+              </div>
+              <div class="pm-vf-tip">点击上方模拟相机取景框区域，直接定位画面主体</div>
+            </div>
+
+            <!-- Classic Composition Archetype Chips -->
+            <div class="pm-popover-pills" id="pm-comp-group" style="margin-top: 8px;">
+              <button type="button" class="pm-comp-pill active" data-comp="auto">✨ 智能构图</button>
+              <button type="button" class="pm-comp-pill" data-comp="thirds-left">📐 三分居左</button>
+              <button type="button" class="pm-comp-pill" data-comp="symmetry-center">🎯 居中对称</button>
+              <button type="button" class="pm-comp-pill" data-comp="thirds-right">📐 三分居右</button>
+              <button type="button" class="pm-comp-pill" data-comp="framing">🖼️ 框架画中画</button>
+              <button type="button" class="pm-comp-pill" data-comp="low-angle">⚡ 英雄仰角</button>
+              <button type="button" class="pm-comp-pill" data-comp="high-aerial">🦅 俯瞰平铺</button>
+              <button type="button" class="pm-comp-pill" data-comp="minimalist-space">🍃 极简大留白</button>
+              <button type="button" class="pm-comp-pill" data-comp="diagonal-lines">⚡ 对角线透视</button>
             </div>
           </div>
 
@@ -527,6 +580,12 @@
     const popoverRatio = modal.querySelector('#pm-popover-ratio');
     const ratioPills = modal.querySelectorAll('#pm-ratio-group .pm-ratio-pill');
 
+    const chipComp = modal.querySelector('#pm-chip-comp');
+    const chipCompText = modal.querySelector('#pm-chip-comp-text');
+    const popoverComp = modal.querySelector('#pm-popover-comp');
+    const compPills = modal.querySelectorAll('#pm-comp-group .pm-comp-pill');
+    const vfZones = modal.querySelectorAll('.pm-vf-zone');
+
     const chipStyle = modal.querySelector('#pm-chip-style');
     const chipStyleText = modal.querySelector('#pm-chip-style-text');
     const popoverStyle = modal.querySelector('#pm-popover-style');
@@ -537,8 +596,11 @@
     const popoverAvoid = modal.querySelector('#pm-popover-avoid');
     const avoidPills = modal.querySelectorAll('#pm-avoid-group .pm-avoid-pill');
 
+    const btnReversePrompt = modal.querySelector('#pm-btn-reverse-prompt');
+
     function closeAllPopovers() {
       if (popoverRatio) popoverRatio.style.display = 'none';
+      if (popoverComp) popoverComp.style.display = 'none';
       if (popoverStyle) popoverStyle.style.display = 'none';
       if (popoverAvoid) popoverAvoid.style.display = 'none';
       if (modeMenu) modeMenu.style.display = 'none';
@@ -555,6 +617,11 @@
     chipRatio?.addEventListener('click', (e) => {
       e.stopPropagation();
       togglePopover(popoverRatio);
+    });
+
+    chipComp?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopover(popoverComp);
     });
 
     chipStyle?.addEventListener('click', (e) => {
@@ -624,11 +691,53 @@
       };
       if (chipRatioText) chipRatioText.textContent = ratioMap[activeAspectRatio] || `📐 ${activeAspectRatio}`;
 
+      const compMap = {
+        'auto': '🎬 构图',
+        'thirds-left': '🎬 三分居左',
+        'thirds-right': '🎬 三分居右',
+        'symmetry-center': '🎯 居中对称',
+        'low-angle': '⚡ 英雄仰角',
+        'high-aerial': '🦅 俯瞰平铺',
+        'framing': '🖼️ 框架前景',
+        'minimalist-space': '🍃 极简留白',
+        'diagonal-lines': '⚡ 对角线'
+      };
+      if (chipCompText) {
+        chipCompText.textContent = compMap[activeComposition] || '🎬 构图';
+        chipComp.classList.toggle('active', activeComposition !== 'auto');
+      }
+
       const activeStyleEl = modal.querySelector('#pm-style-pills .pm-pill.active');
       if (chipStyleText) chipStyleText.textContent = activeStyleEl ? activeStyleEl.textContent.trim() : '🎨 风格';
 
       if (chipAvoidText) chipAvoidText.textContent = activeAvoidTags.length > 0 ? `🚫 避坑 (${activeAvoidTags.length})` : '🚫 避坑 (无)';
     }
+
+    // Viewfinder Zones & Comp Pills
+    vfZones.forEach((zone) => {
+      zone.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const comp = zone.dataset.comp;
+        activeComposition = (activeComposition === comp) ? 'auto' : comp;
+        compPills.forEach(p => p.classList.toggle('active', p.dataset.comp === activeComposition));
+        vfZones.forEach(z => z.classList.toggle('active', z.dataset.comp === activeComposition));
+        updateChipTexts();
+        closeAllPopovers();
+        showToast(`已选构图：${chipCompText.textContent}`);
+      });
+    });
+
+    compPills.forEach((pill) => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        activeComposition = pill.dataset.comp;
+        compPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        vfZones.forEach(z => z.classList.toggle('active', z.dataset.comp === activeComposition));
+        updateChipTexts();
+        closeAllPopovers();
+      });
+    });
 
     ratioPills.forEach((pill) => {
       pill.addEventListener('click', (e) => {
@@ -748,6 +857,10 @@
     });
 
     function updateGalleryUI() {
+      if (btnReversePrompt) {
+        btnReversePrompt.style.display = attachedImages.length > 0 ? 'inline-flex' : 'none';
+      }
+
       if (attachedImages.length === 0) {
         galleryWrap.style.display = 'none';
         galleryTitle.style.display = 'none';
@@ -788,6 +901,76 @@
     updateModeDisplay();
     updateGalleryUI();
 
+    // Reverse Prompt (识图反推) Action
+    async function triggerDescribePrompt() {
+      if (attachedImages.length === 0) {
+        showToast('⚠️ 请先上传或粘贴需要反推的参考图');
+        return;
+      }
+
+      genBtn.disabled = true;
+      if (btnReversePrompt) btnReversePrompt.disabled = true;
+      genBtnText.textContent = '🔍 正在逆向反推视觉元素与摄影参数...';
+
+      try {
+        const result = await ApiClient.optimizePrompt({
+          roughPrompt: '',
+          images: attachedImages,
+          mode: 'describe',
+          aspectRatio: activeAspectRatio,
+          composition: activeComposition !== 'auto' ? activeComposition : undefined
+        });
+
+        lastResultData = result;
+        lastOptimizedPrompt = result.optimizedPrompt || '';
+        resultText.textContent = lastOptimizedPrompt;
+        resultTag.textContent = result.styleTag || '识图反推';
+
+        starBtn.classList.remove('starred');
+        starBtn.querySelector('.pm-star-text').textContent = '收藏';
+
+        let metaHtml = `<strong>中文解析：</strong>${result.chineseSummary || '无'}`;
+        if (result.promptTemplate) {
+          metaHtml += `<br/><div style="margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.2);border-radius:6px;font-family:monospace;font-size:12px;color:#80cbc4;">` +
+            `<strong>💡 主体可替换模板 (Prompt Template)：</strong><br/>${result.promptTemplate}` +
+            `</div>`;
+        }
+        if (result.breakdown) {
+          metaHtml += `<br/><span style="opacity: 0.85; font-size: 11.5px;">` +
+            `🎯 媒介: ${result.breakdown.medium || '-'} | 🎨 构图: ${result.breakdown.composition || '-'} | 💡 光影: ${result.breakdown.lighting || '-'}` +
+            `</span>`;
+        }
+        if (result.tip) {
+          metaHtml += `<br/><span style="color: #ff9800; font-size: 11.5px;">${result.tip}</span>`;
+        }
+        resultMeta.innerHTML = metaHtml;
+        resultContainer.style.display = 'flex';
+
+        await StorageHelper.addHistory({
+          roughPrompt: '【识图反推】' + (result.chineseSummary || ''),
+          optimizedPrompt: lastOptimizedPrompt,
+          styleTag: result.styleTag || '识图反推',
+          mode: 'describe',
+          aspectRatio: activeAspectRatio,
+          hasImage: true,
+          imageCount: attachedImages.length
+        });
+
+        showToast('🎉 识图反推成功！已提炼生产级 Prompt 与替换模板');
+      } catch (err) {
+        showToast('反推失败: ' + err.message);
+      } finally {
+        genBtn.disabled = false;
+        if (btnReversePrompt) btnReversePrompt.disabled = false;
+        genBtnText.textContent = '重新生成提示词';
+      }
+    }
+
+    btnReversePrompt?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerDescribePrompt();
+    });
+
     // Generate Button
     const genBtn = modal.querySelector('#pm-generate-btn');
     const genBtnText = modal.querySelector('#pm-gen-btn-text');
@@ -816,6 +999,7 @@
           mode: activeMode,
           style: activeStyle,
           aspectRatio: activeAspectRatio,
+          composition: activeComposition !== 'auto' ? activeComposition : undefined,
           avoidTags: activeAvoidTags
         });
 
@@ -828,9 +1012,14 @@
         starBtn.querySelector('.pm-star-text').textContent = '收藏';
 
         let metaHtml = `<strong>中文解析：</strong>${result.chineseSummary || '无'}`;
+        if (result.promptTemplate) {
+          metaHtml += `<br/><div style="margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.06);border:1px dashed rgba(255,255,255,0.2);border-radius:6px;font-family:monospace;font-size:12px;color:#80cbc4;">` +
+            `<strong>💡 主体可替换模板 (Prompt Template)：</strong><br/>${result.promptTemplate}` +
+            `</div>`;
+        }
         if (result.breakdown) {
-          metaHtml += `<br/><span style="opacity: 0.8; font-size: 11.5px;">` +
-            `🎯 主体: ${result.breakdown.subject || '-'} | 🏞️ 场景: ${result.breakdown.setting || '-'} | 💡 光影: ${result.breakdown.lighting || '-'}` +
+          metaHtml += `<br/><span style="opacity: 0.85; font-size: 11.5px;">` +
+            `🎯 媒介: ${result.breakdown.medium || '-'} | 🏞️ 场景: ${result.breakdown.setting || '-'} | 💡 光影: ${result.breakdown.lighting || '-'}` +
             `</span>`;
         }
         if (result.tip) {

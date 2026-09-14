@@ -488,6 +488,129 @@ body {
   font-weight: 600;
 }
 
+/* Reverse Prompt Tool Button Highlight */
+.sp-tool-btn-highlight {
+  background: rgba(16, 163, 127, 0.12);
+  color: var(--primary);
+  border: 1px solid rgba(16, 163, 127, 0.35);
+  font-weight: 600;
+  animation: spPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes spPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); background: rgba(16, 163, 127, 0.2); }
+}
+
+/* Interactive Camera Viewfinder */
+.sp-viewfinder-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.sp-viewfinder-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #18181b;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+}
+
+.sp-vf-line {
+  position: absolute;
+  background: rgba(255, 215, 0, 0.25);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sp-vf-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+}
+.sp-vf-v.line-1 { left: 33.33%; }
+.sp-vf-v.line-2 { left: 66.66%; }
+
+.sp-vf-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+.sp-vf-h.line-1 { top: 33.33%; }
+.sp-vf-h.line-2 { top: 66.66%; }
+
+.sp-vf-zone {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  z-index: 3;
+}
+
+.sp-vf-zone:hover {
+  background: rgba(16, 163, 127, 0.22);
+}
+
+.sp-vf-zone.active {
+  background: rgba(16, 163, 127, 0.38);
+  box-shadow: inset 0 0 0 1.5px #10a37f;
+}
+
+.sp-vf-badge {
+  font-size: 10px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  transition: all 0.18s;
+}
+
+.sp-vf-zone.active .sp-vf-badge {
+  background: #10a37f;
+  font-weight: 600;
+}
+
+.sp-vf-tip {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  opacity: 0.8;
+}
+
+.sp-comp-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-comp-pill:hover {
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+
+.sp-comp-pill.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 600;
+}
+
 /* Compact Button Utilities */
 
 .sp-btn-sm {

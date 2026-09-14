@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
   let activeAspectRatio = '16:9';
+  let activeComposition = 'auto';
   let activeAvoidTags = [
     '无乱码文字或水印 (no text artifacts/watermarks)',
     '肢体结构正常手部精细 (anatomically correct hands and fingers)'
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fileInput = document.getElementById('sp-file-input');
   const btnPasteClipboard = document.getElementById('sp-btn-paste-clipboard');
   const btnBrowseFile = document.getElementById('sp-btn-browse-file');
+  const btnReversePrompt = document.getElementById('sp-btn-reverse-prompt');
 
   const galleryWrap = document.getElementById('sp-img-gallery');
   const galleryList = document.getElementById('sp-gallery-list');
@@ -37,6 +39,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const chipRatioText = document.getElementById('sp-chip-ratio-text');
   const popoverRatio = document.getElementById('sp-popover-ratio');
   const ratioPills = document.querySelectorAll('#sp-ratio-group .sp-ratio-pill');
+
+  const chipComp = document.getElementById('sp-chip-comp');
+  const chipCompText = document.getElementById('sp-chip-comp-text');
+  const popoverComp = document.getElementById('sp-popover-comp');
+  const compPills = document.querySelectorAll('#sp-comp-group .sp-comp-pill');
+  const vfZones = document.querySelectorAll('.sp-vf-zone');
 
   const chipStyle = document.getElementById('sp-chip-style');
   const chipStyleText = document.getElementById('sp-chip-style-text');
@@ -78,24 +86,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   checkPendingImage();
   chrome.runtime.onMessage.addListener((req) => {
     if (req.action === 'LOAD_IMAGE_FROM_URL' && req.imageUrl) {
-      loadImageFromUrl(req.imageUrl);
+      loadImageFromUrl(req.imageUrl, req.autoDescribe);
     }
   });
 
   async function checkPendingImage() {
-    chrome.storage.local.get(['pendingImageUrl'], (res) => {
+    chrome.storage.local.get(['pendingImageUrl', 'pendingAutoDescribe'], (res) => {
       if (res.pendingImageUrl) {
-        loadImageFromUrl(res.pendingImageUrl);
-        chrome.storage.local.remove(['pendingImageUrl']);
+        loadImageFromUrl(res.pendingImageUrl, res.pendingAutoDescribe);
+        chrome.storage.local.remove(['pendingImageUrl', 'pendingAutoDescribe']);
       }
     });
   }
 
-  function loadImageFromUrl(url) {
+  function loadImageFromUrl(url, autoDescribe = false) {
     chrome.runtime.sendMessage({ action: 'FETCH_IMAGE_AS_BASE64', url }, (response) => {
       if (response && response.success && response.base64) {
         addAttachedImage(response.base64);
-        showToast('已载入网页选中的参考图片！');
+        if (autoDescribe) {
+          showToast('🔍 已载入图片，正在全自动反推提示词...');
+          setTimeout(() => {
+            triggerDescribePrompt();
+          }, 300);
+        } else {
+          showToast('已载入网页选中的参考图片！');
+        }
       }
     });
   }
@@ -130,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Capsule Chips & Popover Toggles ---
   function closeAllPopovers() {
     if (popoverRatio) popoverRatio.style.display = 'none';
+    if (popoverComp) popoverComp.style.display = 'none';
     if (popoverStyle) popoverStyle.style.display = 'none';
     if (popoverAvoid) popoverAvoid.style.display = 'none';
     if (modeMenu) modeMenu.style.display = 'none';
@@ -145,21 +161,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.addEventListener('click', () => closeAllPopovers());
   });
 
-  chipRatio.addEventListener('click', (e) => {
+  chipRatio?.addEventListener('click', (e) => {
     e.stopPropagation();
     const isOpen = popoverRatio.style.display === 'block';
     closeAllPopovers();
     if (!isOpen) popoverRatio.style.display = 'block';
   });
 
-  chipStyle.addEventListener('click', (e) => {
+  chipComp?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = popoverComp.style.display === 'block';
+    closeAllPopovers();
+    if (!isOpen) popoverComp.style.display = 'block';
+  });
+
+  chipStyle?.addEventListener('click', (e) => {
     e.stopPropagation();
     const isOpen = popoverStyle.style.display === 'block';
     closeAllPopovers();
     if (!isOpen) popoverStyle.style.display = 'block';
   });
 
-  chipAvoid.addEventListener('click', (e) => {
+  chipAvoid?.addEventListener('click', (e) => {
     e.stopPropagation();
     const isOpen = popoverAvoid.style.display === 'block';
     closeAllPopovers();
@@ -172,7 +195,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       ratioPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       activeAspectRatio = pill.dataset.ratio;
-      chipRatioText.textContent = `📐 ${pill.textContent.trim()}`;
+      chipRatioText.textContent = `📐 ${pill.textContent.trim().split(' ')[0]}`;
+      closeAllPopovers();
+    });
+  });
+
+  // Composition Pills & Interactive Viewfinder Zones
+  function updateCompUI() {
+    const compMap = {
+      'auto': '🎬 构图',
+      'thirds-left': '🎬 三分居左',
+      'thirds-right': '🎬 三分居右',
+      'symmetry-center': '🎯 居中对称',
+      'low-angle': '⚡ 英雄仰角',
+      'high-aerial': '🦅 俯瞰平铺',
+      'framing': '🖼️ 框架前景',
+      'minimalist-space': '🍃 极简留白',
+      'diagonal-lines': '⚡ 对角线'
+    };
+    chipCompText.textContent = compMap[activeComposition] || '🎬 构图';
+    chipComp.classList.toggle('active', activeComposition !== 'auto');
+
+    compPills.forEach(p => p.classList.toggle('active', p.dataset.comp === activeComposition));
+    vfZones.forEach(z => z.classList.toggle('active', z.dataset.comp === activeComposition));
+  }
+
+  vfZones.forEach((zone) => {
+    zone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const comp = zone.dataset.comp;
+      activeComposition = (activeComposition === comp) ? 'auto' : comp;
+      updateCompUI();
+      closeAllPopovers();
+      showToast(`已选择构图：${chipCompText.textContent}`);
+    });
+  });
+
+  compPills.forEach((pill) => {
+    pill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      activeComposition = pill.dataset.comp;
+      updateCompUI();
       closeAllPopovers();
     });
   });
@@ -183,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       stylePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       activeStyle = pill.dataset.style;
-      chipStyleText.textContent = `🎨 ${pill.textContent.trim()}`;
+      chipStyleText.textContent = `🎨 ${pill.textContent.trim().split(' ')[1] || pill.textContent.trim()}`;
       closeAllPopovers();
     });
   });
@@ -384,12 +447,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (attachedImages.length === 0) {
       galleryWrap.style.display = 'none';
       galleryTitle.style.display = 'none';
+      if (btnReversePrompt) btnReversePrompt.style.display = 'none';
       return;
     }
 
     galleryWrap.style.display = 'flex';
     galleryTitle.style.display = 'inline';
     galleryTitle.textContent = `(${attachedImages.length}/6)`;
+    if (btnReversePrompt) btnReversePrompt.style.display = 'inline-flex';
 
     const items = galleryList.querySelectorAll('.sp-thumb-item');
     items.forEach(it => it.remove());
@@ -414,6 +479,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // --- Reverse Prompt (识图反推) Action ---
+  async function triggerDescribePrompt() {
+    if (attachedImages.length === 0) {
+      showToast('⚠️ 请先上传或粘贴需要反推的参考图');
+      return;
+    }
+
+    btnGenerate.disabled = true;
+    if (btnReversePrompt) btnReversePrompt.disabled = true;
+    genText.textContent = '🔍 正在逆向反推视觉元素与摄影参数...';
+
+    try {
+      const result = await ApiClient.optimizePrompt({
+        roughPrompt: '',
+        images: attachedImages,
+        mode: 'describe',
+        aspectRatio: activeAspectRatio,
+        composition: activeComposition !== 'auto' ? activeComposition : undefined
+      });
+
+      currentResultData = result;
+      currentOptimizedPrompt = result.optimizedPrompt;
+      promptOutput.textContent = currentOptimizedPrompt;
+
+      // Reset star button state
+      btnStar.classList.remove('starred');
+      btnStar.querySelector('.sp-star-text').textContent = '收藏';
+
+      renderBreakdown(result);
+
+      if (result.alternativePrompts && result.alternativePrompts.length > 0) {
+        variationsList.innerHTML = '';
+        result.alternativePrompts.forEach((alt) => {
+          const item = document.createElement('div');
+          item.className = 'sp-variation-item';
+          item.textContent = alt;
+          item.title = '点击选用此变体';
+          item.addEventListener('click', () => {
+            currentOptimizedPrompt = alt;
+            promptOutput.textContent = alt;
+            showToast('已选用此变体版本！');
+          });
+          variationsList.appendChild(item);
+        });
+        variationsCard.style.display = 'block';
+      } else {
+        variationsCard.style.display = 'none';
+      }
+
+      resultCard.style.display = 'flex';
+
+      await StorageHelper.addHistory({
+        roughPrompt: '【识图反推】' + (result.chineseSummary || ''),
+        optimizedPrompt: currentOptimizedPrompt,
+        styleTag: result.styleTag || '识图反推',
+        mode: 'describe',
+        aspectRatio: activeAspectRatio,
+        hasImage: true,
+        imageCount: attachedImages.length
+      });
+
+      showToast('🎉 识图反推成功！已提炼生产级 Prompt');
+    } catch (err) {
+      console.error(err);
+      showToast('识图反推失败: ' + err.message);
+    } finally {
+      btnGenerate.disabled = false;
+      if (btnReversePrompt) btnReversePrompt.disabled = false;
+      genText.textContent = '一键生成 Images 2.5 提示词';
+    }
+  }
+
+  btnReversePrompt?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    triggerDescribePrompt();
+  });
+
   // --- Generate Action ---
   btnGenerate.addEventListener('click', async () => {
     const rough = roughInput.value.trim();
@@ -434,6 +576,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         mode: activeMode,
         style: activeStyle,
         aspectRatio: activeAspectRatio,
+        composition: activeComposition !== 'auto' ? activeComposition : undefined,
         avoidTags: activeAvoidTags
       });
 
@@ -497,9 +640,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (result.chineseSummary) {
       html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">📌 核心意图:</span>${result.chineseSummary}</div>`;
     }
+    if (result.promptTemplate) {
+      html += `<div class="sp-breakdown-item" style="border-left: 2px solid var(--primary); padding-left: 6px; background: rgba(16, 163, 127, 0.06); border-radius: 4px; padding: 6px;"><span class="sp-breakdown-tag" style="color:var(--primary); font-weight:600;">🧩 可复用模板:</span><span style="font-family: monospace; font-size: 11px;">${result.promptTemplate}</span></div>`;
+    }
     if (result.breakdown) {
       const b = result.breakdown;
       if (b.subject) html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">🎯 主体:</span>${b.subject}</div>`;
+      if (b.medium) html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">🎨 介质材质:</span>${b.medium}</div>`;
       if (b.setting) html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">🏞️ 场景:</span>${b.setting}</div>`;
       if (b.lighting) html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">💡 光影:</span>${b.lighting}</div>`;
       if (b.camera) html += `<div class="sp-breakdown-item"><span class="sp-breakdown-tag">📷 镜头:</span>${b.camera}</div>`;
