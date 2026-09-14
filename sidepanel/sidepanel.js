@@ -1,6 +1,6 @@
 /**
  * Sidepanel Workspace Controller
- * ChatGPT Images 2.5 Prompt Enhancer & Creative Assistant
+ * ChatGPT Images 2.5 Prompt Enhancer - Ultra Clean Edition
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -8,23 +8,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
   let activeAspectRatio = '16:9';
-  let activeAvoidTags = [];
+  let activeAvoidTags = [
+    '无乱码文字或水印 (no text artifacts/watermarks)',
+    '肢体结构正常手部精细 (anatomically correct hands and fingers)'
+  ];
   let currentOptimizedPrompt = '';
   let currentResultData = null;
 
   // Elements
-  const modeTabs = document.querySelectorAll('.sp-mode-tab');
-  const stylePills = document.querySelectorAll('#sp-style-pills .sp-pill');
-  const ratioPills = document.querySelectorAll('#sp-ratio-group .sp-ratio-pill');
-  const avoidPills = document.querySelectorAll('#sp-avoid-group .sp-avoid-pill');
+  const modeBadge = document.getElementById('sp-mode-badge');
+  const modeLabel = document.getElementById('sp-mode-label');
+  const modeMenu = document.getElementById('sp-mode-menu');
+  const modeOpts = document.querySelectorAll('.sp-mode-opt');
 
-  const dropzone = document.getElementById('sp-dropzone');
+  const roughInput = document.getElementById('sp-rough-input');
   const fileInput = document.getElementById('sp-file-input');
+  const btnPasteClipboard = document.getElementById('sp-btn-paste-clipboard');
+  const btnBrowseFile = document.getElementById('sp-btn-browse-file');
+
   const galleryWrap = document.getElementById('sp-img-gallery');
   const galleryList = document.getElementById('sp-gallery-list');
-  const galleryTitle = document.getElementById('sp-gallery-title');
   const galleryClearBtn = document.getElementById('sp-gallery-clear');
   const galleryAddBtn = document.getElementById('sp-gallery-add-btn');
+  const galleryTitle = document.getElementById('sp-gallery-title');
+
+  // Capsule Chips & Popovers
+  const chipRatio = document.getElementById('sp-chip-ratio');
+  const chipRatioText = document.getElementById('sp-chip-ratio-text');
+  const popoverRatio = document.getElementById('sp-popover-ratio');
+  const ratioPills = document.querySelectorAll('#sp-ratio-group .sp-ratio-pill');
+
+  const chipStyle = document.getElementById('sp-chip-style');
+  const chipStyleText = document.getElementById('sp-chip-style-text');
+  const popoverStyle = document.getElementById('sp-popover-style');
+  const stylePills = document.querySelectorAll('#sp-style-pills .sp-pill');
+
+  const chipAvoid = document.getElementById('sp-chip-avoid');
+  const chipAvoidText = document.getElementById('sp-chip-avoid-text');
+  const popoverAvoid = document.getElementById('sp-popover-avoid');
+  const avoidPills = document.querySelectorAll('#sp-avoid-group .sp-avoid-pill');
 
   // Sketch Elements
   const openSketchBtn = document.getElementById('sp-open-sketch');
@@ -35,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sketchConfirmBtn = document.getElementById('sp-sketch-confirm');
   const sketchColors = document.querySelectorAll('.sp-color-dot');
 
-  const roughInput = document.getElementById('sp-rough-input');
+  // Generate & Result
   const btnGenerate = document.getElementById('sp-btn-generate');
   const genText = document.getElementById('sp-gen-text');
   const resultCard = document.getElementById('sp-result-card');
@@ -87,34 +109,95 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Mode Tabs
-  modeTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      modeTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-      activeMode = tab.dataset.mode;
+  // --- Mode Dropdown Logic ---
+  modeBadge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeAllPopovers();
+    modeMenu.style.display = modeMenu.style.display === 'none' ? 'block' : 'none';
+  });
+
+  modeOpts.forEach((opt) => {
+    opt.addEventListener('click', () => {
+      modeOpts.forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      activeMode = opt.dataset.mode;
+      updateModeUI();
+      modeMenu.style.display = 'none';
+    });
+  });
+
+  function updateModeUI() {
+    if (activeMode === 'new') {
+      modeLabel.textContent = '✨ 全新构思';
+    } else if (activeMode === 'reference') {
+      modeLabel.textContent = `🖼️ 垫图参考 (${attachedImages.length}张)`;
+    } else if (activeMode === 'edit') {
+      modeLabel.textContent = '🔄 局部微调 (稳定)';
+    }
+  }
+
+  // --- Capsule Chips & Popover Toggles ---
+  function closeAllPopovers() {
+    if (popoverRatio) popoverRatio.style.display = 'none';
+    if (popoverStyle) popoverStyle.style.display = 'none';
+    if (popoverAvoid) popoverAvoid.style.display = 'none';
+    if (modeMenu) modeMenu.style.display = 'none';
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.sp-popover') && !e.target.closest('.sp-capsule-btn') && !e.target.closest('.sp-mode-dropdown-wrap')) {
+      closeAllPopovers();
+    }
+  });
+
+  document.querySelectorAll('.sp-popover-close').forEach((btn) => {
+    btn.addEventListener('click', () => closeAllPopovers());
+  });
+
+  chipRatio.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = popoverRatio.style.display === 'block';
+    closeAllPopovers();
+    if (!isOpen) popoverRatio.style.display = 'block';
+  });
+
+  chipStyle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = popoverStyle.style.display === 'block';
+    closeAllPopovers();
+    if (!isOpen) popoverStyle.style.display = 'block';
+  });
+
+  chipAvoid.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = popoverAvoid.style.display === 'block';
+    closeAllPopovers();
+    if (!isOpen) popoverAvoid.style.display = 'block';
+  });
+
+  // Ratio Pills
+  ratioPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      ratioPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeAspectRatio = pill.dataset.ratio;
+      chipRatioText.textContent = `📐 ${pill.textContent.trim()}`;
+      closeAllPopovers();
     });
   });
 
   // Style Pills
   stylePills.forEach((pill) => {
     pill.addEventListener('click', () => {
-      stylePills.forEach((p) => p.classList.remove('active'));
+      stylePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       activeStyle = pill.dataset.style;
+      chipStyleText.textContent = `🎨 ${pill.textContent.trim()}`;
+      closeAllPopovers();
     });
   });
 
-  // Ratio Pills
-  ratioPills.forEach((pill) => {
-    pill.addEventListener('click', () => {
-      ratioPills.forEach((p) => p.classList.remove('active'));
-      pill.classList.add('active');
-      activeAspectRatio = pill.dataset.ratio;
-    });
-  });
-
-  // Avoid Negative Tags (Multiple toggle)
+  // Avoid Pills (Multiple toggle)
   avoidPills.forEach((pill) => {
     pill.addEventListener('click', () => {
       pill.classList.toggle('active');
@@ -124,16 +207,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         activeAvoidTags = activeAvoidTags.filter(t => t !== tag);
       }
+      chipAvoidText.textContent = activeAvoidTags.length > 0 ? `🚫 避坑 (${activeAvoidTags.length})` : '🚫 避坑 (无)';
     });
   });
 
-  // Buttons for direct clipboard paste & local file selection
-  const btnPasteClipboard = document.getElementById('sp-btn-paste-clipboard');
-  const btnBrowseFile = document.getElementById('sp-btn-browse-file');
-  const galleryPasteBtn = document.getElementById('sp-gallery-paste-btn');
-  const galleryBrowseBtn = document.getElementById('sp-gallery-browse-btn');
-
-  // Direct clipboard reader (one-click paste without needing keyboard)
+  // --- Image Upload & Direct Clipboard Paste ---
   async function pasteFromClipboardDirectly() {
     if (attachedImages.length >= 6) {
       showToast('⚠️ 参考图已达上限 (最多6张)');
@@ -164,35 +242,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  btnPasteClipboard?.addEventListener('click', (e) => {
+  btnPasteClipboard.addEventListener('click', (e) => {
     e.stopPropagation();
     pasteFromClipboardDirectly();
   });
 
-  galleryPasteBtn?.addEventListener('click', (e) => {
+  btnBrowseFile.addEventListener('click', (e) => {
     e.stopPropagation();
-    pasteFromClipboardDirectly();
-  });
-
-  btnBrowseFile?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    fileInput.click();
-  });
-
-  galleryBrowseBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    fileInput.click();
-  });
-
-  // Image Drop & File Input
-  dropzone.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return;
     fileInput.click();
   });
 
   galleryAddBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
-    // Try pasting from clipboard first if clipboard has an image
     if (navigator.clipboard && navigator.clipboard.read) {
       try {
         const items = await navigator.clipboard.read();
@@ -211,29 +272,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     fileInput.value = '';
   });
 
-  dropzone.addEventListener('dragover', (e) => {
+  // Drag & drop into input card
+  const inputCard = document.querySelector('.sp-input-card');
+  inputCard.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropzone.classList.add('dragover');
+    inputCard.style.borderColor = 'var(--primary)';
   });
-
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.classList.remove('dragover');
+  inputCard.addEventListener('dragleave', () => {
+    inputCard.style.borderColor = '';
   });
-
-  dropzone.addEventListener('drop', (e) => {
+  inputCard.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropzone.classList.remove('dragover');
+    inputCard.style.borderColor = '';
     if (e.dataTransfer.files) {
       handleImageFilesBatch(e.dataTransfer.files);
     }
   });
 
-  // Auto focus on mouseenter so Ctrl+V works immediately without manual clicking
-  window.addEventListener('mouseenter', () => {
-    window.focus();
-  });
-
-  // Global Capture-Phase Paste for Sidepanel
+  // Global Capture-Phase Paste
   window.addEventListener('paste', (e) => {
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
@@ -269,6 +325,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }, true);
 
+  // Auto focus on mouseenter so Ctrl+V works immediately without manual clicking
+  window.addEventListener('mouseenter', () => {
+    window.focus();
+  });
+
   function handleImageFilesBatch(files) {
     const fileList = Array.from(files).filter(f => f && f.type && f.type.startsWith('image/'));
     if (fileList.length === 0) return;
@@ -294,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           updateGalleryUI();
           if (activeMode === 'new') {
             activeMode = 'reference';
-            modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+            updateModeUI();
           }
           showToast(`✅ 已连续载入参考图 (${attachedImages.length}/6)`);
         }
@@ -313,7 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (activeMode === 'new') {
       activeMode = 'reference';
-      modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+      updateModeUI();
     }
     showToast(`✅ 已载入参考图 (${attachedImages.length}/6)`);
   }
@@ -321,35 +382,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   galleryClearBtn.addEventListener('click', () => {
     attachedImages = [];
     updateGalleryUI();
+    if (activeMode === 'reference') {
+      activeMode = 'new';
+      updateModeUI();
+    }
     showToast('已清空所有参考图');
   });
 
   function updateGalleryUI() {
     if (attachedImages.length === 0) {
       galleryWrap.style.display = 'none';
-      dropzone.style.display = 'block';
+      galleryTitle.style.display = 'none';
       return;
     }
 
-    dropzone.style.display = 'none';
     galleryWrap.style.display = 'flex';
-    galleryTitle.textContent = `已载入参考图 (${attachedImages.length}/6)`;
+    galleryTitle.style.display = 'inline';
+    galleryTitle.textContent = `(${attachedImages.length}/6)`;
 
-    const items = galleryList.querySelectorAll('.sp-gallery-item');
+    const items = galleryList.querySelectorAll('.sp-thumb-item');
     items.forEach(it => it.remove());
 
     attachedImages.forEach((imgBase64, idx) => {
       const item = document.createElement('div');
-      item.className = 'sp-gallery-item';
+      item.className = 'sp-thumb-item';
       item.innerHTML = `
         <img src="${imgBase64}" alt="参考图 ${idx + 1}" />
-        <span class="sp-gallery-badge">图 ${idx + 1}</span>
-        <button type="button" class="sp-gallery-del" title="删除此图">✕</button>
+        <button type="button" class="sp-thumb-del" title="删除此图">✕</button>
       `;
-      item.querySelector('.sp-gallery-del').addEventListener('click', (e) => {
+      item.querySelector('.sp-thumb-del').addEventListener('click', (e) => {
         e.stopPropagation();
         attachedImages.splice(idx, 1);
         updateGalleryUI();
+        if (attachedImages.length === 0 && activeMode === 'reference') {
+          activeMode = 'new';
+          updateModeUI();
+        }
       });
       galleryList.insertBefore(item, galleryAddBtn);
     });
@@ -377,7 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   sketchColors.forEach((dot) => {
     dot.addEventListener('click', () => {
-      sketchColors.forEach((d) => d.classList.remove('active'));
+      sketchColors.forEach(d => d.classList.remove('active'));
       dot.classList.add('active');
       currentColor = dot.dataset.color;
       currentLineWidth = currentColor === '#ffffff' ? 14 : 4;
@@ -445,21 +513,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     addAttachedImage(sketchData);
     sketchBox.style.display = 'none';
-    showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
+    showToast('🎨 涂鸦草图已成功导入为参考图！');
   });
 
-  // Generate Action
+  // --- Generate Action ---
   btnGenerate.addEventListener('click', async () => {
     const rough = roughInput.value.trim();
     if (!rough && attachedImages.length === 0) {
-      showToast('请先输入粗略想法或上传参考图');
+      showToast('请先输入想法或粘贴参考图');
       return;
     }
 
     btnGenerate.disabled = true;
     genText.textContent = attachedImages.length > 1
-      ? `✨ 正在多图深度融合与构思中 (${attachedImages.length}张参考图)...`
-      : '✨ 正在依据 Images 2.5 规范优化中...';
+      ? `✨ 正在多图深度融合 (${attachedImages.length}张)...`
+      : '✨ 正在依据 Images 2.5 规范构思...';
 
     try {
       const result = await ApiClient.optimizePrompt({
@@ -522,7 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('生成异常: ' + err.message);
     } finally {
       btnGenerate.disabled = false;
-      genText.textContent = '重新生成提示词';
+      genText.textContent = '一键生成 Images 2.5 提示词';
     }
   });
 
@@ -637,7 +705,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function renderFavorites() {
     const favs = await StorageHelper.getFavorites();
     if (favs.length === 0) {
-      favoritesList.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:30px 0;">暂无收藏提示词，点击结果卡的 ★ 即可收藏</div>';
+      favoritesList.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:30px 0;">暂无收藏提示词，点击结果卡片的 ★ 即可收藏</div>';
       return;
     }
 
@@ -676,6 +744,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     toast.classList.add('show');
     setTimeout(() => {
       toast.classList.remove('show');
-    }, 2800);
+    }, 2500);
   }
 });

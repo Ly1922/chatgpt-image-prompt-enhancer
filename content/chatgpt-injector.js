@@ -10,8 +10,10 @@
   let attachedImages = []; // Array of base64 strings
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
-  let activeAspectRatio = '16:9';
-  let activeAvoidTags = [];
+  let activeAvoidTags = [
+    '无乱码文字或水印 (no text artifacts/watermarks)',
+    '肢体结构正常手部精细 (anatomically correct hands and fingers)'
+  ];
   let lastOptimizedPrompt = '';
   let lastResultData = null;
 
@@ -114,9 +116,8 @@
           // Switch to reference mode without stealing keyboard focus
           if (activeMode === 'new') {
             activeMode = 'reference';
-            if (currentModal) {
-              const tabs = currentModal.querySelectorAll('.pm-mode-tab');
-              tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+            if (currentModal && typeof currentModal.updateModeDisplay === 'function') {
+              currentModal.updateModeDisplay();
             }
           }
           showToast(`✅ 已连续载入参考图 (${attachedImages.length}/6)`);
@@ -338,57 +339,66 @@
 
         <!-- Body -->
         <div class="pm-body">
-          <!-- Generation Modes -->
-          <div class="pm-mode-tabs">
-            <div class="pm-mode-tab active" data-mode="new">🌟 从头全新构思</div>
-            <div class="pm-mode-tab" data-mode="reference">🖼️ 垫图参考风格</div>
-            <div class="pm-mode-tab" data-mode="edit">🔄 保持稳定局部修改</div>
+          <!-- Integrated Clean Input Card -->
+          <div class="pm-input-card">
+            <!-- Top Toolbar: Auto-Mode Badge & Hint -->
+            <div class="pm-card-topbar">
+              <div class="pm-mode-dropdown-wrap">
+                <button type="button" class="pm-mode-chip" id="pm-mode-badge" title="点击切换生成模式 (默认AI自动识别)">
+                  <span id="pm-mode-label">✨ 全新构思</span>
+                  <span class="pm-chevron">▾</span>
+                </button>
+                <div class="pm-mode-menu" id="pm-mode-menu" style="display:none;">
+                  <div class="pm-mode-opt active" data-mode="new">🌟 从头全新构思 (自动)</div>
+                  <div class="pm-mode-opt" data-mode="reference">🖼️ 垫图参考风格</div>
+                  <div class="pm-mode-opt" data-mode="edit">🔄 保持稳定局部微调</div>
+                </div>
+              </div>
+              <span class="pm-top-tip">直接按 Ctrl+V 随时贴图</span>
+            </div>
+
+            <!-- Textarea -->
+            <textarea
+              id="pm-user-rough-input"
+              class="pm-textarea"
+              rows="2"
+              placeholder="输入简略想法，或按 Ctrl+V 连续粘贴截图..."
+            ></textarea>
+
+            <!-- Reference Images Miniature Strip (Shown when images exist) -->
+            <div class="pm-thumb-strip" id="pm-img-gallery" style="display:none;">
+              <div class="pm-thumb-list" id="pm-gallery-list">
+                <button type="button" class="pm-thumb-add" id="pm-gallery-add-btn" title="继续粘贴或选图">+</button>
+              </div>
+              <button type="button" class="pm-strip-clear" id="pm-gallery-clear" title="清空全部参考图">✕ 清空</button>
+            </div>
+
+            <!-- Bottom Action Bar inside Input Card -->
+            <div class="pm-card-footer">
+              <div class="pm-footer-btns">
+                <button type="button" class="pm-tool-btn" id="pm-btn-paste-clipboard" title="直接读取剪贴板图片">
+                  📋 粘贴截图
+                </button>
+                <button type="button" class="pm-tool-btn" id="pm-btn-browse-file" title="选择本地图片文件">
+                  📁 选图
+                </button>
+                <button type="button" class="pm-tool-btn" id="pm-open-sketch-btn" title="打开涂鸦构图板">
+                  ✏️ 涂鸦
+                </button>
+                <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
+              </div>
+              <span class="pm-img-count" id="pm-gallery-title" style="display:none;">(0/6)</span>
+            </div>
           </div>
 
-          <!-- Image Dropzone / Multi-Image Gallery -->
-          <div class="pm-dropzone" id="pm-dropzone">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
-              <span style="font-weight:600;">参考图上传与融合 (最多 6 张)</span>
-              <div style="display:flex; gap:8px;">
-                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-btn-paste-clipboard" title="直接从剪贴板读取截图并上传">📋 点击粘贴截图</button>
-                <button type="button" class="pm-btn-sm" id="pm-btn-browse-file" title="打开电脑文件选择">📁 选择本地图片</button>
-              </div>
-              <span style="font-size:11px; opacity:0.65;">或直接按 <strong>Ctrl+V</strong> 随时连续粘贴截图</span>
-            </div>
-            <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
-          </div>
-
-          <div class="pm-img-gallery" id="pm-img-gallery">
-            <div class="pm-gallery-header">
-              <span id="pm-gallery-title">已添加参考图 (0/6)</span>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-gallery-paste-btn" title="点击继续粘贴剪贴板截图">📋 粘贴截图</button>
-                <button type="button" class="pm-btn-sm" id="pm-gallery-browse-btn" title="选择本地文件">📁 选图</button>
-                <button type="button" class="pm-btn-sm" id="pm-open-sketch-btn" title="随手涂鸦空间布局">✏️ 涂鸦草图</button>
-                <button type="button" class="pm-gallery-clear" id="pm-gallery-clear">清空全部</button>
-              </div>
-            </div>
-            <div class="pm-gallery-list" id="pm-gallery-list">
-              <div class="pm-gallery-add" id="pm-gallery-add-btn" title="点击粘贴截图或选择图片 (支持直接按 Ctrl+V)">
-                <span style="font-size: 18px; line-height: 1;">+</span>
-                <span>粘贴/加图</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2D Sketch Board Drawer -->
-          <div class="pm-sketch-box" id="pm-sketch-box">
+          <!-- 2D Sketch Board Drawer (Collapsible) -->
+          <div class="pm-sketch-box" id="pm-sketch-box" style="display:none;">
             <div class="pm-sketch-header">
               <span>✏️ 快速构图涂鸦板 (帮助 Images 2.5 定位空间布局)</span>
               <button type="button" class="pm-btn-sm" id="pm-close-sketch-btn">✕ 关闭</button>
             </div>
             <div class="pm-sketch-canvas-wrap">
-              <canvas id="pm-sketch-canvas" class="pm-sketch-canvas" width="460" height="230"></canvas>
+              <canvas id="pm-sketch-canvas" class="pm-sketch-canvas" width="460" height="200"></canvas>
             </div>
             <div class="pm-sketch-tools">
               <div class="pm-sketch-colors">
@@ -407,53 +417,68 @@
             </div>
           </div>
 
-          <!-- Rough Idea Input -->
-          <div class="pm-textarea-wrap">
-            <textarea
-              id="pm-user-rough-input"
-              class="pm-textarea"
-              placeholder="输入您的粗略想法，例如：一个赛博朋克猫咪在雨夜面馆吃拉面，胶片质感，电影级逆光..."
-            ></textarea>
+          <!-- Compact Parameter Capsule Strip (One Single Line!) -->
+          <div class="pm-capsule-strip">
+            <button type="button" class="pm-capsule-btn active" id="pm-chip-ratio" title="点击更改画幅">
+              <span id="pm-chip-ratio-text">📐 16:9 宽幅</span>
+              <span class="pm-chevron">▾</span>
+            </button>
+
+            <button type="button" class="pm-capsule-btn active" id="pm-chip-style" title="点击更改镜头风格">
+              <span id="pm-chip-style-text">🎨 电影级写实</span>
+              <span class="pm-chevron">▾</span>
+            </button>
+
+            <button type="button" class="pm-capsule-btn active" id="pm-chip-avoid" title="点击配置避坑标签">
+              <span id="pm-chip-avoid-text">🚫 避坑 (2)</span>
+              <span class="pm-chevron">▾</span>
+            </button>
           </div>
 
-          <!-- Aspect Ratio Selector -->
-          <div class="pm-feature-row">
-            <div class="pm-feature-title">
-              <span>📐 画幅画质比例</span>
-              <span style="font-size: 10.5px; opacity: 0.65;">自动融入官方景别与镜头语言</span>
+          <!-- Popover 1: Aspect Ratio -->
+          <div class="pm-popover" id="pm-popover-ratio" style="display:none;">
+            <div class="pm-popover-title">
+              <span>📐 画幅与景别比例</span>
+              <span class="pm-popover-close">✕</span>
             </div>
-            <div class="pm-ratio-group" id="pm-ratio-group">
-              <span class="pm-ratio-pill" data-ratio="1:1">1:1 方形头像</span>
-              <span class="pm-ratio-pill active" data-ratio="16:9">16:9 横版宽画幅</span>
-              <span class="pm-ratio-pill" data-ratio="9:16">9:16 竖版手机壁纸</span>
-              <span class="pm-ratio-pill" data-ratio="4:3">4:3 经典摄影</span>
-              <span class="pm-ratio-pill" data-ratio="21:9">21:9 电影变形宽银幕</span>
+            <div class="pm-popover-pills" id="pm-ratio-group">
+              <button type="button" class="pm-ratio-pill" data-ratio="1:1">1:1 方形头像</button>
+              <button type="button" class="pm-ratio-pill active" data-ratio="16:9">16:9 横版宽幅</button>
+              <button type="button" class="pm-ratio-pill" data-ratio="9:16">9:16 竖版壁纸</button>
+              <button type="button" class="pm-ratio-pill" data-ratio="4:3">4:3 经典摄影</button>
+              <button type="button" class="pm-ratio-pill" data-ratio="21:9">21:9 宽银幕电影</button>
             </div>
           </div>
 
-          <!-- Style Preset Pills -->
-          <div class="pm-pills-wrap" id="pm-pills-wrap">
-            <span class="pm-pill active" data-style="photorealistic">电影级写实摄影</span>
-            <span class="pm-pill" data-style="3d-render">3D 盲盒渲染</span>
-            <span class="pm-pill" data-style="anime">日系唯美动漫</span>
-            <span class="pm-pill" data-style="cyberpunk">赛博朋克未来风</span>
-            <span class="pm-pill" data-style="minimalist">现代极简艺术</span>
-            <span class="pm-pill" data-style="oil-painting">古典厚涂油画</span>
-            <span class="pm-pill" data-style="commercial">商业产品广告</span>
+          <!-- Popover 2: Style Preset -->
+          <div class="pm-popover" id="pm-popover-style" style="display:none;">
+            <div class="pm-popover-title">
+              <span>🎨 艺术与镜头风格</span>
+              <span class="pm-popover-close">✕</span>
+            </div>
+            <div class="pm-popover-pills" id="pm-style-pills">
+              <button type="button" class="pm-pill active" data-style="photorealistic">📸 电影级写实</button>
+              <button type="button" class="pm-pill" data-style="3d-render">🧸 3D 盲盒渲染</button>
+              <button type="button" class="pm-pill" data-style="anime">🌸 日系唯美动漫</button>
+              <button type="button" class="pm-pill" data-style="cyberpunk">⚡ 赛博朋克未来</button>
+              <button type="button" class="pm-pill" data-style="minimalist">🌿 现代极简艺术</button>
+              <button type="button" class="pm-pill" data-style="oil-painting">🎨 古典厚涂油画</button>
+              <button type="button" class="pm-pill" data-style="commercial">💎 商业广告大片</button>
+            </div>
           </div>
 
-          <!-- Negative Constraints / Avoid Tags -->
-          <div class="pm-feature-row">
-            <div class="pm-feature-title">
-              <span>🚫 严禁与避坑约束 (负向剔除)</span>
-              <span style="font-size: 10.5px; opacity: 0.65;">点击激活，权威叙事化过滤</span>
+          <!-- Popover 3: Avoid Constraints -->
+          <div class="pm-popover" id="pm-popover-avoid" style="display:none;">
+            <div class="pm-popover-title">
+              <span>🚫 严禁与避坑约束 (多选)</span>
+              <span class="pm-popover-close">✕</span>
             </div>
-            <div class="pm-avoid-group" id="pm-avoid-group">
-              <span class="pm-avoid-pill" data-avoid="无乱码文字或水印 (no text artifacts/watermarks)">🔤 无乱码文字水印</span>
-              <span class="pm-avoid-pill" data-avoid="肢体结构正常手部精细 (anatomically correct hands and fingers)">✋ 规避手指畸形</span>
-              <span class="pm-avoid-pill" data-avoid="背景纯净无杂乱干扰 (clean uncluttered background)">🧹 纯净不杂乱</span>
-              <span class="pm-avoid-pill" data-avoid="避免廉价塑料CG质感 (avoid cheap plastic 3d gloss)">✨ 拒绝塑料CG假感</span>
-              <span class="pm-avoid-pill" data-avoid="画面清晰拒绝低分辨率模糊 (no blurry or pixelated details)">🔍 拒绝低清模糊</span>
+            <div class="pm-popover-pills" id="pm-avoid-group">
+              <button type="button" class="pm-avoid-pill active" data-avoid="无乱码文字或水印 (no text artifacts/watermarks)">🔤 无乱码文字水印</button>
+              <button type="button" class="pm-avoid-pill active" data-avoid="肢体结构正常手部精细 (anatomically correct hands and fingers)">✋ 规避手指畸形</button>
+              <button type="button" class="pm-avoid-pill" data-avoid="背景纯净无杂乱干扰 (clean uncluttered background)">🧹 纯净不杂乱</button>
+              <button type="button" class="pm-avoid-pill" data-avoid="避免廉价塑料CG质感 (avoid cheap plastic 3d gloss)">✨ 拒绝塑料CG假感</button>
+              <button type="button" class="pm-avoid-pill" data-avoid="画面清晰拒绝低分辨率模糊 (no blurry or pixelated details)">🔍 拒绝低清模糊</button>
             </div>
           </div>
 
@@ -519,36 +544,146 @@
       chrome.runtime.sendMessage({ action: 'OPEN_OPTIONS' });
     });
 
-    const modeTabs = modal.querySelectorAll('.pm-mode-tab');
-    modeTabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
-        modeTabs.forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
-        activeMode = tab.dataset.mode;
+    // Mode Badge & Dropdown
+    const modeBadge = modal.querySelector('#pm-mode-badge');
+    const modeLabel = modal.querySelector('#pm-mode-label');
+    const modeMenu = modal.querySelector('#pm-mode-menu');
+    const modeOpts = modal.querySelectorAll('.pm-mode-opt');
+
+    // Capsule Chips & Popovers
+    const chipRatio = modal.querySelector('#pm-chip-ratio');
+    const chipRatioText = modal.querySelector('#pm-chip-ratio-text');
+    const popoverRatio = modal.querySelector('#pm-popover-ratio');
+    const ratioPills = modal.querySelectorAll('#pm-ratio-group .pm-ratio-pill');
+
+    const chipStyle = modal.querySelector('#pm-chip-style');
+    const chipStyleText = modal.querySelector('#pm-chip-style-text');
+    const popoverStyle = modal.querySelector('#pm-popover-style');
+    const stylePills = modal.querySelectorAll('#pm-style-pills .pm-pill');
+
+    const chipAvoid = modal.querySelector('#pm-chip-avoid');
+    const chipAvoidText = modal.querySelector('#pm-chip-avoid-text');
+    const popoverAvoid = modal.querySelector('#pm-popover-avoid');
+    const avoidPills = modal.querySelectorAll('#pm-avoid-group .pm-avoid-pill');
+
+    function closeAllPopovers() {
+      if (popoverRatio) popoverRatio.style.display = 'none';
+      if (popoverStyle) popoverStyle.style.display = 'none';
+      if (popoverAvoid) popoverAvoid.style.display = 'none';
+      if (modeMenu) modeMenu.style.display = 'none';
+    }
+
+    function togglePopover(target) {
+      const isVisible = target.style.display === 'block';
+      closeAllPopovers();
+      if (!isVisible) {
+        target.style.display = 'block';
+      }
+    }
+
+    chipRatio?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopover(popoverRatio);
+    });
+
+    chipStyle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopover(popoverStyle);
+    });
+
+    chipAvoid?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopover(popoverAvoid);
+    });
+
+    modeBadge?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePopover(modeMenu);
+    });
+
+    modal.querySelectorAll('.pm-popover-close').forEach((closeBtn) => {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPopovers();
       });
     });
 
-    const pills = modal.querySelectorAll('.pm-pill');
-    pills.forEach((pill) => {
-      pill.addEventListener('click', () => {
-        pills.forEach((p) => p.classList.remove('active'));
-        pill.classList.add('active');
-        activeStyle = pill.dataset.style;
+    modal.querySelector('.pm-modal')?.addEventListener('click', (e) => {
+      if (
+        !e.target.closest('.pm-popover') &&
+        !e.target.closest('.pm-capsule-btn') &&
+        !e.target.closest('.pm-mode-dropdown-wrap')
+      ) {
+        closeAllPopovers();
+      }
+    });
+
+    modeOpts.forEach((opt) => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modeOpts.forEach((o) => o.classList.remove('active'));
+        opt.classList.add('active');
+        activeMode = opt.dataset.mode;
+        updateModeDisplay();
+        closeAllPopovers();
       });
     });
 
-    const ratioPills = modal.querySelectorAll('.pm-ratio-pill');
+    function updateModeDisplay() {
+      if (activeMode === 'new') {
+        if (attachedImages.length > 0) {
+          modeLabel.textContent = `🖼️ 垫图参考 (${attachedImages.length}张)`;
+        } else {
+          modeLabel.textContent = '✨ 全新构思';
+        }
+      } else if (activeMode === 'reference') {
+        modeLabel.textContent = `🖼️ 垫图参考 (${attachedImages.length}张)`;
+      } else if (activeMode === 'edit') {
+        modeLabel.textContent = '🔄 保持稳定微调';
+      }
+    }
+
+    function updateChipTexts() {
+      const ratioMap = {
+        '1:1': '📐 1:1 方形',
+        '16:9': '📐 16:9 宽幅',
+        '9:16': '📐 9:16 壁纸',
+        '4:3': '📐 4:3 经典',
+        '21:9': '📐 21:9 宽影'
+      };
+      if (chipRatioText) chipRatioText.textContent = ratioMap[activeAspectRatio] || `📐 ${activeAspectRatio}`;
+
+      const activeStyleEl = modal.querySelector('#pm-style-pills .pm-pill.active');
+      if (chipStyleText) chipStyleText.textContent = activeStyleEl ? activeStyleEl.textContent.trim() : '🎨 风格';
+
+      if (chipAvoidText) chipAvoidText.textContent = activeAvoidTags.length > 0 ? `🚫 避坑 (${activeAvoidTags.length})` : '🚫 避坑 (无)';
+    }
+
     ratioPills.forEach((pill) => {
-      pill.addEventListener('click', () => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
         ratioPills.forEach((p) => p.classList.remove('active'));
         pill.classList.add('active');
         activeAspectRatio = pill.dataset.ratio;
+        updateChipTexts();
+        closeAllPopovers();
       });
     });
 
-    const avoidPills = modal.querySelectorAll('.pm-avoid-pill');
+    stylePills.forEach((pill) => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stylePills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeStyle = pill.dataset.style;
+        updateChipTexts();
+        closeAllPopovers();
+      });
+    });
+
     avoidPills.forEach((pill) => {
-      pill.addEventListener('click', () => {
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
         pill.classList.toggle('active');
         const tag = pill.dataset.avoid;
         if (pill.classList.contains('active')) {
@@ -556,10 +691,11 @@
         } else {
           activeAvoidTags = activeAvoidTags.filter(t => t !== tag);
         }
+        updateChipTexts();
       });
     });
 
-    const dropzone = modal.querySelector('#pm-dropzone');
+    // Inputs and File Handling
     const fileInput = modal.querySelector('#pm-file-input');
     const galleryWrap = modal.querySelector('#pm-img-gallery');
     const galleryList = modal.querySelector('#pm-gallery-list');
@@ -570,8 +706,6 @@
 
     const btnPasteClipboard = modal.querySelector('#pm-btn-paste-clipboard');
     const btnBrowseFile = modal.querySelector('#pm-btn-browse-file');
-    const galleryPasteBtn = modal.querySelector('#pm-gallery-paste-btn');
-    const galleryBrowseBtn = modal.querySelector('#pm-gallery-browse-btn');
 
     async function pasteFromClipboardDirectly() {
       if (attachedImages.length >= 6) {
@@ -608,27 +742,12 @@
       pasteFromClipboardDirectly();
     });
 
-    galleryPasteBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      pasteFromClipboardDirectly();
-    });
-
     btnBrowseFile?.addEventListener('click', (e) => {
       e.stopPropagation();
       fileInput.click();
     });
 
-    galleryBrowseBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fileInput.click();
-    });
-
-    dropzone.addEventListener('click', (e) => {
-      if (e.target.closest('button')) return;
-      fileInput.click();
-    });
-
-    galleryAddBtn.addEventListener('click', async (e) => {
+    galleryAddBtn?.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (navigator.clipboard && navigator.clipboard.read) {
         try {
@@ -652,24 +771,7 @@
       fileInput.value = '';
     });
 
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.classList.remove('dragover');
-    });
-
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files) {
-        handleImageFilesBatch(e.dataTransfer.files);
-      }
-    });
-
-    galleryClearBtn.addEventListener('click', () => {
+    galleryClearBtn?.addEventListener('click', () => {
       attachedImages = [];
       updateGalleryUI();
       showToast('已清空所有参考图');
@@ -678,35 +780,43 @@
     function updateGalleryUI() {
       if (attachedImages.length === 0) {
         galleryWrap.style.display = 'none';
-        dropzone.style.display = 'flex';
+        galleryTitle.style.display = 'none';
+        updateModeDisplay();
         return;
       }
 
-      dropzone.style.display = 'none';
       galleryWrap.style.display = 'flex';
-      galleryTitle.textContent = `已添加参考图 (${attachedImages.length}/6)`;
+      galleryTitle.style.display = 'inline';
+      galleryTitle.textContent = `(${attachedImages.length}/6)`;
 
-      const items = galleryList.querySelectorAll('.pm-gallery-item');
-      items.forEach(it => it.remove());
+      const existingItems = galleryList.querySelectorAll('.pm-thumb-item');
+      existingItems.forEach(el => el.remove());
 
-      attachedImages.forEach((imgBase64, idx) => {
+      attachedImages.forEach((dataUrl, idx) => {
         const item = document.createElement('div');
-        item.className = 'pm-gallery-item';
+        item.className = 'pm-thumb-item';
         item.innerHTML = `
-          <img src="${imgBase64}" alt="参考图 ${idx + 1}" />
-          <span class="pm-gallery-badge">图 ${idx + 1}</span>
-          <button type="button" class="pm-gallery-del" title="删除此图">✕</button>
+          <img src="${dataUrl}" alt="参考图 ${idx + 1}" />
+          <button type="button" class="pm-thumb-del" data-idx="${idx}" title="删除此图">✕</button>
         `;
-        item.querySelector('.pm-gallery-del').addEventListener('click', (e) => {
+        item.querySelector('.pm-thumb-del').addEventListener('click', (e) => {
           e.stopPropagation();
           attachedImages.splice(idx, 1);
           updateGalleryUI();
         });
         galleryList.insertBefore(item, galleryAddBtn);
       });
+
+      updateModeDisplay();
     }
 
     modal.updateGalleryUI = updateGalleryUI;
+    modal.updateModeDisplay = updateModeDisplay;
+    modal.updateChipTexts = updateChipTexts;
+
+    updateChipTexts();
+    updateModeDisplay();
+    updateGalleryUI();
 
     // --- 2D Sketch Board Logic ---
     const sketchBox = modal.querySelector('#pm-sketch-box');
@@ -810,8 +920,7 @@
       sketchBox.style.display = 'none';
       if (activeMode === 'new') {
         activeMode = 'reference';
-        const tabs = modal.querySelectorAll('.pm-mode-tab');
-        tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+        updateModeDisplay();
       }
       showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
     });
