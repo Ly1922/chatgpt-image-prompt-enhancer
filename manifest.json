@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT 生图提示词大师 (Images 2.5 官方规范)",
+  "short_name": "PromptMaster",
+  "version": "1.0.0",
+  "description": "基于 OpenAI 官方 ChatGPT Images 2.5 规范，结合参考图与粗略想法，一键将简略词秒变专业级生图提示词，支持在 ChatGPT 页面内一键填入。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "打开生图提示词工作室",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_page": "options/options.html",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "contextMenus",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "lib/storage.js",
+        "lib/prompt-engine.js",
+        "lib/api-client.js",
+        "content/chatgpt-injector.js"
+      ],
+      "css": [
+        "content/chatgpt-injector.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

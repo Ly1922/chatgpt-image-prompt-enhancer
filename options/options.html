@@ -1,0 +1,159 @@
+!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>扩展设置 - ChatGPT Images 2.5 提示词工坊</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="opt-container">
+    <div class="opt-header">
+      <div class="opt-brand">
+        <span class="opt-logo">🎨</span>
+        <div>
+          <h1>ChatGPT Images 2.5 生图提示词大师</h1>
+          <p>模型与 API 配置中心</p>
+        </div>
+      </div>
+      <div class="opt-links">
+        <a href="https://openai.com/index/introducing-chatgpt-images-2-5/" target="_blank" rel="noreferrer" class="opt-link">
+          📖 官方 2.5 规范文档
+        </a>
+      </div>
+    </div>
+
+    <div class="opt-card">
+      <div class="opt-section-title">
+        <h2>🤖 AI 驱动模型配置</h2>
+        <p>用于在您输入粗略词或上传图片时，智能转译为官方 Brief 提示词。</p>
+      </div>
+
+      <!-- Provider Selector -->
+      <div class="opt-field">
+        <label class="opt-label">选择 AI 服务商</label>
+        <div class="opt-radio-group">
+          <label class="opt-radio-card">
+            <input type="radio" name="provider" value="cpamc" checked />
+            <div class="opt-radio-content">
+              <strong>🖥️ CPAMC (CLI Proxy API 控制台)</strong>
+              <span>连接自建或 VPS 部署的 CLI Proxy API 项目，支持 Claude / ChatGPT / Gemini 代理</span>
+            </div>
+          </label>
+          <label class="opt-radio-card">
+            <input type="radio" name="provider" value="gemini" />
+            <div class="opt-radio-content">
+              <strong>Google Gemini</strong>
+              <span>速度极快、多模态看图精准、免费额度充裕</span>
+            </div>
+          </label>
+          <label class="opt-radio-card">
+            <input type="radio" name="provider" value="custom" />
+            <div class="opt-radio-content">
+              <strong>自定义中转 / 兼容接口</strong>
+              <span>支持 OneAPI、SiliconFlow、本地 Ollama 等</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- API Key Field -->
+      <div class="opt-field">
+        <label class="opt-label" for="opt-api-key">
+          API Key
+          <a href="#" id="opt-get-key-link" class="opt-hint-link" target="_blank">如何获取 Key?</a>
+        </label>
+        <div class="opt-input-row">
+          <input type="password" id="opt-api-key" class="opt-input" placeholder="输入您的 API Key..." />
+          <button type="button" id="opt-toggle-key" class="opt-btn-secondary">显示</button>
+        </div>
+        <p class="opt-desc">您的 API Key 仅保存在本地 Chrome 浏览器的安全存储区，绝不上报任何第三方服务器。</p>
+      </div>
+
+      <!-- Gemini Specific -->
+      <div id="opt-gemini-fields" class="opt-sub-fields">
+        <div class="opt-field">
+          <label class="opt-label" for="opt-gemini-model">Gemini 模型</label>
+          <select id="opt-gemini-model" class="opt-select">
+            <option value="gemini-2.0-flash">gemini-2.0-flash (最新极速)</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash (稳定高效)</option>
+            <option value="gemini-1.5-pro">gemini-1.5-pro (深度画意理解)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- OpenAI Specific -->
+      <div id="opt-openai-fields" class="opt-sub-fields" style="display:none;">
+        <div class="opt-field">
+          <label class="opt-label" for="opt-openai-model">OpenAI 模型</label>
+          <select id="opt-openai-model" class="opt-select">
+            <option value="gpt-4o-mini">gpt-4o-mini (经济敏捷，推荐)</option>
+            <option value="gpt-4o">gpt-4o (全能旗舰视觉)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- CPAMC Specific -->
+      <div id="opt-cpamc-fields" class="opt-sub-fields" style="display:none;">
+        <div class="opt-field">
+          <label class="opt-label" for="opt-cpamc-endpoint">CPAMC API 基础地址 (Base URL)</label>
+          <input type="text" id="opt-cpamc-endpoint" class="opt-input" placeholder="http://您的VPS_IP:8000/v1 或 https://您的域名/v1" />
+          <p class="opt-desc">填写您 VPS 上 CPAMC / CLI Proxy API 的接口地址（通常带 /v1）。</p>
+        </div>
+        <div class="opt-field">
+          <label class="opt-label" for="opt-cpamc-model">
+            <span>模型名称</span>
+            <button type="button" id="opt-btn-fetch-models" class="opt-btn-secondary" style="padding: 2px 10px; font-size: 11px;">🔍 获取可用模型列表</button>
+          </label>
+          <div class="opt-input-row">
+            <input type="text" id="opt-cpamc-model" class="opt-input" placeholder="例如：gpt-4o, claude-3-5-sonnet, gemini-2.0-flash" />
+            <select id="opt-cpamc-model-select" class="opt-select" style="display:none; flex:1;">
+            </select>
+          </div>
+          <p class="opt-desc">可点击右上方按钮自动从您的 VPS 获取已配置的模型列表，也可直接手动输入。</p>
+        </div>
+      </div>
+
+      <!-- Custom Specific -->
+      <div id="opt-custom-fields" class="opt-sub-fields" style="display:none;">
+        <div class="opt-field">
+          <label class="opt-label" for="opt-custom-endpoint">自定义 Base URL</label>
+          <input type="text" id="opt-custom-endpoint" class="opt-input" placeholder="https://api.your-proxy.com/v1" />
+        </div>
+        <div class="opt-field">
+          <label class="opt-label" for="opt-custom-model">自定义模型名称</label>
+          <input type="text" id="opt-custom-model" class="opt-input" placeholder="例如：gpt-4o 或 qwen-vl-max" />
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="opt-actions">
+        <button id="opt-btn-test" class="opt-btn-secondary">
+          🔌 测试连接
+        </button>
+        <button id="opt-btn-save" class="opt-btn-primary">
+          💾 保存设置
+        </button>
+      </div>
+      <div id="opt-test-result" class="opt-test-status"></div>
+    </div>
+
+    <!-- Official Guide Summary Card -->
+    <div class="opt-card">
+      <div class="opt-section-title">
+        <h2>💡 OpenAI 官方 Images 2.5 提示词精要</h2>
+      </div>
+      <ul class="opt-tips-list">
+        <li><strong>结构化简报（Structured Brief）胜过堆砌形容词</strong>：不要使用 "8k, masterpiece, trending on artstation" 等空洞词汇；ChatGPT Images 2.5 更看重对主体材质、具体光影（如体积光、轮廓光）、焦段与构图的叙述。</li>
+        <li><strong>局部修改遵循稳定性定义（Stability vs Change）</strong>：在修改图片时，明确告诉 AI 哪部分需要保持稳定（如原角色面部轮廓、服装纹理），哪部分需要改变。</li>
+        <li><strong>英文提示词生图效果更精准</strong>：本插件将自动生成符合官方大模型理解的最佳英文生产级提示词，同时为您提供清晰的中文要素拆解。</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/prompt-engine.js"></script>
+  <script src="../lib/api-client.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
