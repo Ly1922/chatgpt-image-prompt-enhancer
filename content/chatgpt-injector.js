@@ -1,6 +1,6 @@
 /**
  * Content script injected into https://chatgpt.com/*
- * Automatically injects the "✨ 润色生图提示词" magic button and modal.
+ * ChatGPT Images 2.5 Prompt Enhancer & Creative Assistant
  */
 
 (function () {
@@ -10,13 +10,17 @@
   let attachedImages = []; // Array of base64 strings
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
+  let activeAspectRatio = '16:9';
+  let activeAvoidTags = [];
   let lastOptimizedPrompt = '';
+  let lastResultData = null;
 
   // Initialize once DOM is ready
   function init() {
     observeDOM();
     injectTriggerButton();
     setupKeyboardShortcut();
+    observeChatImages();
   }
 
   /**
@@ -25,6 +29,7 @@
   function observeDOM() {
     const observer = new MutationObserver(() => {
       injectTriggerButton();
+      observeChatImages();
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
@@ -35,11 +40,9 @@
   function injectTriggerButton() {
     if (document.getElementById('pm-trigger-btn')) return;
 
-    // Search for ChatGPT prompt textarea or its container
     const promptTextarea = document.getElementById('prompt-textarea');
     if (!promptTextarea) return;
 
-    // Find the enclosing form or action bar container
     const form = promptTextarea.closest('form') || promptTextarea.parentElement;
     if (!form) return;
 
@@ -61,9 +64,99 @@
       openModal();
     });
 
-    // Insert just before the form or atop the input bar
     if (form.parentNode) {
       form.parentNode.insertBefore(btn, form);
+    }
+  }
+
+  /**
+   * Observe chat conversation and inject "🪄 基于此图微调" onto generated images
+   */
+  function observeChatImages() {
+    const images = document.querySelectorAll('main img, [data-message-author-role="assistant"] img');
+    images.forEach((img) => {
+      if (img.closest('#pm-modal-backdrop') || img.closest('.pm-img-gallery') || img.closest('.pm-sketch-box')) return;
+      if (img.width < 100 || img.height < 100) return;
+
+      const parent = img.parentElement;
+      if (!parent || parent.querySelector('.pm-inchat-btn-wrap')) return;
+
+      const computedPos = window.getComputedStyle(parent).position;
+      if (computedPos === 'static') {
+        parent.style.position = 'relative';
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'pm-inchat-btn-wrap';
+      wrap.innerHTML = `
+        <button class="pm-inchat-reprompt-btn" type="button" title="以此图为基准进行保持主体一致性的微调迭代">
+          🪄 基于此图微调
+        </button>
+      `;
+
+      wrap.querySelector('button').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleInChatRePrompt(img);
+      });
+
+      parent.appendChild(wrap);
+    });
+  }
+
+  /**
+   * Handle in-chat image iteration
+   */
+  async function handleInChatRePrompt(imgElement) {
+    showToast('正在载入选中的生成图作为微调基准...');
+    const src = imgElement.src;
+
+    let base64 = '';
+    if (src.startsWith('data:image')) {
+      base64 = src;
+    } else {
+      try {
+        const res = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ action: 'FETCH_IMAGE_AS_BASE64', url: src }, resolve);
+        });
+        if (res && res.success) {
+          base64 = res.base64;
+        }
+      } catch (e) {
+        console.warn('Direct fetch failed, falling back to canvas', e);
+      }
+    }
+
+    if (!base64) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = imgElement.naturalWidth || imgElement.width || 512;
+        c.height = imgElement.naturalHeight || imgElement.height || 512;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0);
+        base64 = c.toDataURL('image/png');
+      } catch (err) {
+        console.error('Failed to capture canvas image', err);
+      }
+    }
+
+    openModal();
+
+    if (base64) {
+      attachedImages = [base64];
+      if (currentModal && typeof currentModal.updateGalleryUI === 'function') {
+        currentModal.updateGalleryUI();
+      }
+    }
+
+    const editTab = currentModal.querySelector('[data-mode="edit"]');
+    if (editTab) editTab.click();
+
+    const input = currentModal.querySelector('#pm-user-rough-input');
+    if (input) {
+      input.value = '';
+      input.placeholder = '请描述您想保持什么、修改什么（例如：保持人物面容与发型不变，将背景换成金色麦田）...';
+      input.focus();
     }
   }
 
@@ -95,7 +188,6 @@
       createModal();
     }
 
-    // Auto-grab existing text in ChatGPT's prompt textarea if user typed something
     const promptTextarea = document.getElementById('prompt-textarea');
     const modalInput = document.getElementById('pm-user-rough-input');
     if (promptTextarea && modalInput) {
@@ -133,6 +225,7 @@
           <div class="pm-header-title">
             <span>🎨 ChatGPT Images 2.5 提示词工坊</span>
             <span class="pm-badge">官方规范</span>
+            <span class="pm-status-beacon" id="pm-status-beacon" title="VPS API 状态在线"></span>
           </div>
           <div class="pm-header-actions">
             <button class="pm-icon-btn" id="pm-settings-btn" title="插件配置与 API 设置">
@@ -164,20 +257,48 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <span>拖入多张参考图或点击上传 (支持同时多选、截图多次粘贴 Ctrl+V)</span>
+            <span>拖入多张参考图、点击上传，或直接按 Ctrl+V 粘贴 (最多6张)</span>
             <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
           </div>
 
           <div class="pm-img-gallery" id="pm-img-gallery">
             <div class="pm-gallery-header">
-              <span id="pm-gallery-title">已添加参考图 (0/5)</span>
-              <button type="button" class="pm-gallery-clear" id="pm-gallery-clear">清空全部</button>
+              <span id="pm-gallery-title">已添加参考图 (0/6)</span>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="pm-btn-sm" id="pm-open-sketch-btn" title="随手涂鸦空间布局">✏️ 涂鸦草图</button>
+                <button type="button" class="pm-gallery-clear" id="pm-gallery-clear">清空全部</button>
+              </div>
             </div>
             <div class="pm-gallery-list" id="pm-gallery-list">
-              <!-- Dynamically populated -->
               <div class="pm-gallery-add" id="pm-gallery-add-btn" title="继续添加参考图">
                 <span style="font-size: 18px; line-height: 1;">+</span>
                 <span>加图</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2D Sketch Board Drawer -->
+          <div class="pm-sketch-box" id="pm-sketch-box">
+            <div class="pm-sketch-header">
+              <span>✏️ 快速构图涂鸦板 (帮助 Images 2.5 定位空间布局)</span>
+              <button type="button" class="pm-btn-sm" id="pm-close-sketch-btn">✕ 关闭</button>
+            </div>
+            <div class="pm-sketch-canvas-wrap">
+              <canvas id="pm-sketch-canvas" class="pm-sketch-canvas" width="460" height="230"></canvas>
+            </div>
+            <div class="pm-sketch-tools">
+              <div class="pm-sketch-colors">
+                <span style="font-size: 11px; opacity: 0.7;">画笔:</span>
+                <div class="pm-color-dot active" data-color="#1a1a1a" style="background:#1a1a1a;"></div>
+                <div class="pm-color-dot" data-color="#64748b" style="background:#64748b;"></div>
+                <div class="pm-color-dot" data-color="#2563eb" style="background:#2563eb;"></div>
+                <div class="pm-color-dot" data-color="#ef4444" style="background:#ef4444;"></div>
+                <div class="pm-color-dot" data-color="#10a37f" style="background:#10a37f;"></div>
+                <div class="pm-color-dot" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="橡皮擦"></div>
+              </div>
+              <div class="pm-sketch-actions">
+                <button type="button" class="pm-btn-sm" id="pm-sketch-clear">清空画布</button>
+                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-sketch-confirm">✓ 导入为参考图</button>
               </div>
             </div>
           </div>
@@ -187,8 +308,23 @@
             <textarea
               id="pm-user-rough-input"
               class="pm-textarea"
-              placeholder="输入您的简略想法，例如：一个赛博朋克风格的猫咪在雨夜面馆吃面，电影光影..."
+              placeholder="输入您的粗略想法，例如：一个赛博朋克猫咪在雨夜面馆吃拉面，胶片质感，电影级逆光..."
             ></textarea>
+          </div>
+
+          <!-- Aspect Ratio Selector -->
+          <div class="pm-feature-row">
+            <div class="pm-feature-title">
+              <span>📐 画幅画质比例</span>
+              <span style="font-size: 10.5px; opacity: 0.65;">自动融入官方景别与镜头语言</span>
+            </div>
+            <div class="pm-ratio-group" id="pm-ratio-group">
+              <span class="pm-ratio-pill" data-ratio="1:1">1:1 方形头像</span>
+              <span class="pm-ratio-pill active" data-ratio="16:9">16:9 横版宽画幅</span>
+              <span class="pm-ratio-pill" data-ratio="9:16">9:16 竖版手机壁纸</span>
+              <span class="pm-ratio-pill" data-ratio="4:3">4:3 经典摄影</span>
+              <span class="pm-ratio-pill" data-ratio="21:9">21:9 电影变形宽银幕</span>
+            </div>
           </div>
 
           <!-- Style Preset Pills -->
@@ -200,6 +336,21 @@
             <span class="pm-pill" data-style="minimalist">现代极简艺术</span>
             <span class="pm-pill" data-style="oil-painting">古典厚涂油画</span>
             <span class="pm-pill" data-style="commercial">商业产品广告</span>
+          </div>
+
+          <!-- Negative Constraints / Avoid Tags -->
+          <div class="pm-feature-row">
+            <div class="pm-feature-title">
+              <span>🚫 严禁与避坑约束 (负向剔除)</span>
+              <span style="font-size: 10.5px; opacity: 0.65;">点击激活，权威叙事化过滤</span>
+            </div>
+            <div class="pm-avoid-group" id="pm-avoid-group">
+              <span class="pm-avoid-pill" data-avoid="无乱码文字或水印 (no text artifacts/watermarks)">🔤 无乱码文字水印</span>
+              <span class="pm-avoid-pill" data-avoid="肢体结构正常手部精细 (anatomically correct hands and fingers)">✋ 规避手指畸形</span>
+              <span class="pm-avoid-pill" data-avoid="背景纯净无杂乱干扰 (clean uncluttered background)">🧹 纯净不杂乱</span>
+              <span class="pm-avoid-pill" data-avoid="避免廉价塑料CG质感 (avoid cheap plastic 3d gloss)">✨ 拒绝塑料CG假感</span>
+              <span class="pm-avoid-pill" data-avoid="画面清晰拒绝低分辨率模糊 (no blurry or pixelated details)">🔍 拒绝低清模糊</span>
+            </div>
           </div>
 
           <!-- Generate Action -->
@@ -214,7 +365,13 @@
           <div class="pm-result-container" id="pm-result-container">
             <div class="pm-result-header">
               <span id="pm-result-title">✨ 生成的生产级提示词 (Brief)</span>
-              <span id="pm-result-tag" style="font-size: 11px; opacity: 0.8;"></span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="pm-star-btn" id="pm-star-btn" title="收藏此提示词">
+                  <span class="pm-star-icon">★</span>
+                  <span class="pm-star-text">收藏</span>
+                </button>
+                <span id="pm-result-tag" style="font-size: 11px; opacity: 0.8;"></span>
+              </div>
             </div>
             <div class="pm-result-text" id="pm-result-text"></div>
             <div class="pm-result-meta" id="pm-result-meta"></div>
@@ -247,7 +404,6 @@
       if (e.target === modal) closeModal();
     });
 
-    // Close button & ESC key
     modal.querySelector('#pm-close-btn').addEventListener('click', closeModal);
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && modal.classList.contains('active')) {
@@ -255,12 +411,10 @@
       }
     });
 
-    // Open options page
     modal.querySelector('#pm-settings-btn').addEventListener('click', () => {
       chrome.runtime.sendMessage({ action: 'OPEN_OPTIONS' });
     });
 
-    // Mode tabs
     const modeTabs = modal.querySelectorAll('.pm-mode-tab');
     modeTabs.forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -270,7 +424,6 @@
       });
     });
 
-    // Style pills
     const pills = modal.querySelectorAll('.pm-pill');
     pills.forEach((pill) => {
       pill.addEventListener('click', () => {
@@ -280,7 +433,28 @@
       });
     });
 
-    // Image Upload & Multi-Image Gallery
+    const ratioPills = modal.querySelectorAll('.pm-ratio-pill');
+    ratioPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        ratioPills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeAspectRatio = pill.dataset.ratio;
+      });
+    });
+
+    const avoidPills = modal.querySelectorAll('.pm-avoid-pill');
+    avoidPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        pill.classList.toggle('active');
+        const tag = pill.dataset.avoid;
+        if (pill.classList.contains('active')) {
+          if (!activeAvoidTags.includes(tag)) activeAvoidTags.push(tag);
+        } else {
+          activeAvoidTags = activeAvoidTags.filter(t => t !== tag);
+        }
+      });
+    });
+
     const dropzone = modal.querySelector('#pm-dropzone');
     const fileInput = modal.querySelector('#pm-file-input');
     const galleryWrap = modal.querySelector('#pm-img-gallery');
@@ -288,6 +462,7 @@
     const galleryTitle = modal.querySelector('#pm-gallery-title');
     const galleryClearBtn = modal.querySelector('#pm-gallery-clear');
     const galleryAddBtn = modal.querySelector('#pm-gallery-add-btn');
+    const openSketchBtn = modal.querySelector('#pm-open-sketch-btn');
 
     dropzone.addEventListener('click', () => fileInput.click());
     galleryAddBtn.addEventListener('click', () => fileInput.click());
@@ -315,7 +490,6 @@
       }
     });
 
-    // Paste image from clipboard anywhere inside modal
     modal.addEventListener('paste', (e) => {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -341,7 +515,6 @@
       reader.onload = (e) => {
         attachedImages.push(e.target.result);
         updateGalleryUI();
-        // Auto-switch mode to reference if currently new
         if (activeMode === 'new') {
           const refTab = modal.querySelector('[data-mode="reference"]');
           if (refTab) refTab.click();
@@ -361,7 +534,6 @@
       galleryWrap.style.display = 'flex';
       galleryTitle.textContent = `已添加参考图 (${attachedImages.length}/6)`;
 
-      // Clear existing thumbnail items except the + add button
       const items = galleryList.querySelectorAll('.pm-gallery-item');
       items.forEach(it => it.remove());
 
@@ -382,6 +554,115 @@
       });
     }
 
+    modal.updateGalleryUI = updateGalleryUI;
+
+    // --- 2D Sketch Board Logic ---
+    const sketchBox = modal.querySelector('#pm-sketch-box');
+    const closeSketchBtn = modal.querySelector('#pm-close-sketch-btn');
+    const sketchCanvas = modal.querySelector('#pm-sketch-canvas');
+    const sketchClearBtn = modal.querySelector('#pm-sketch-clear');
+    const sketchConfirmBtn = modal.querySelector('#pm-sketch-confirm');
+    const colorDots = modal.querySelectorAll('.pm-color-dot');
+
+    const sCtx = sketchCanvas.getContext('2d');
+    let isDrawing = false;
+    let currentColor = '#1a1a1a';
+    let currentLineWidth = 4;
+
+    function resetCanvasBackground() {
+      sCtx.fillStyle = '#ffffff';
+      sCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+    }
+    resetCanvasBackground();
+
+    openSketchBtn.addEventListener('click', () => {
+      sketchBox.style.display = 'flex';
+    });
+
+    closeSketchBtn.addEventListener('click', () => {
+      sketchBox.style.display = 'none';
+    });
+
+    colorDots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        colorDots.forEach((d) => d.classList.remove('active'));
+        dot.classList.add('active');
+        currentColor = dot.dataset.color;
+        currentLineWidth = currentColor === '#ffffff' ? 14 : 4;
+      });
+    });
+
+    function getCanvasCoords(e) {
+      const rect = sketchCanvas.getBoundingClientRect();
+      const scaleX = sketchCanvas.width / rect.width;
+      const scaleY = sketchCanvas.height / rect.height;
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+      if (e.touches && e.touches[0]) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDraw(e) {
+      isDrawing = true;
+      const coords = getCanvasCoords(e);
+      sCtx.beginPath();
+      sCtx.moveTo(coords.x, coords.y);
+      sCtx.strokeStyle = currentColor;
+      sCtx.lineWidth = currentLineWidth;
+      sCtx.lineCap = 'round';
+      sCtx.lineJoin = 'round';
+    }
+
+    function moveDraw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const coords = getCanvasCoords(e);
+      sCtx.lineTo(coords.x, coords.y);
+      sCtx.stroke();
+    }
+
+    function endDraw() {
+      if (isDrawing) {
+        sCtx.closePath();
+        isDrawing = false;
+      }
+    }
+
+    sketchCanvas.addEventListener('mousedown', startDraw);
+    sketchCanvas.addEventListener('mousemove', moveDraw);
+    sketchCanvas.addEventListener('mouseup', endDraw);
+    sketchCanvas.addEventListener('mouseleave', endDraw);
+
+    sketchCanvas.addEventListener('touchstart', startDraw, { passive: false });
+    sketchCanvas.addEventListener('touchmove', moveDraw, { passive: false });
+    sketchCanvas.addEventListener('touchend', endDraw);
+
+    sketchClearBtn.addEventListener('click', () => {
+      resetCanvasBackground();
+    });
+
+    sketchConfirmBtn.addEventListener('click', () => {
+      const sketchDataUrl = sketchCanvas.toDataURL('image/png');
+      if (attachedImages.length >= 6) {
+        showToast('参考图已达到上限(6张)，请先删除部分参考图');
+        return;
+      }
+      attachedImages.push(sketchDataUrl);
+      updateGalleryUI();
+      sketchBox.style.display = 'none';
+      if (activeMode === 'new') {
+        const refTab = modal.querySelector('[data-mode="reference"]');
+        if (refTab) refTab.click();
+      }
+      showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
+    });
+
     // Generate Button
     const genBtn = modal.querySelector('#pm-generate-btn');
     const genBtnText = modal.querySelector('#pm-gen-btn-text');
@@ -389,6 +670,7 @@
     const resultText = modal.querySelector('#pm-result-text');
     const resultMeta = modal.querySelector('#pm-result-meta');
     const resultTag = modal.querySelector('#pm-result-tag');
+    const starBtn = modal.querySelector('#pm-star-btn');
 
     genBtn.addEventListener('click', async () => {
       const roughInput = modal.querySelector('#pm-user-rough-input').value.trim();
@@ -407,12 +689,18 @@
           roughPrompt: roughInput,
           images: attachedImages,
           mode: activeMode,
-          style: activeStyle
+          style: activeStyle,
+          aspectRatio: activeAspectRatio,
+          avoidTags: activeAvoidTags
         });
 
+        lastResultData = result;
         lastOptimizedPrompt = result.optimizedPrompt || '';
         resultText.textContent = lastOptimizedPrompt;
         resultTag.textContent = result.styleTag || '';
+
+        starBtn.classList.remove('starred');
+        starBtn.querySelector('.pm-star-text').textContent = '收藏';
 
         let metaHtml = `<strong>中文解析：</strong>${result.chineseSummary || '无'}`;
         if (result.breakdown) {
@@ -430,6 +718,31 @@
       } finally {
         genBtn.disabled = false;
         genBtnText.textContent = '重新生成提示词';
+      }
+    });
+
+    // Star Favorite Button
+    starBtn.addEventListener('click', async () => {
+      if (!lastOptimizedPrompt) return;
+      try {
+        const isAdded = await StorageHelper.toggleFavorite({
+          optimizedPrompt: lastOptimizedPrompt,
+          chineseSummary: lastResultData?.chineseSummary || '',
+          styleTag: lastResultData?.styleTag || activeStyle,
+          mode: activeMode,
+          aspectRatio: activeAspectRatio
+        });
+        if (isAdded) {
+          starBtn.classList.add('starred');
+          starBtn.querySelector('.pm-star-text').textContent = '已收藏';
+          showToast('★ 已成功添加到收藏夹！');
+        } else {
+          starBtn.classList.remove('starred');
+          starBtn.querySelector('.pm-star-text').textContent = '收藏';
+          showToast('已取消收藏');
+        }
+      } catch (e) {
+        showToast('收藏操作异常: ' + e.message);
       }
     });
 
@@ -468,8 +781,6 @@
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     } else {
-      // For contenteditable div
-      // Use document.execCommand to preserve undo stack and trigger React listeners
       document.execCommand('selectAll', false, null);
       document.execCommand('delete', false, null);
       const success = document.execCommand('insertText', false, text);
@@ -499,7 +810,6 @@
     }, 2400);
   }
 
-  // Kickstart
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

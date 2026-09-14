@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -13,12 +13,18 @@
       <div class="sp-logo">
         <div class="sp-logo-icon">🎨</div>
         <div class="sp-logo-text">
-          <h1>Images 2.5 提示词工坊</h1>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <h1>Images 2.5 工坊</h1>
+            <span class="sp-status-beacon" id="sp-status-beacon" title="VPS API 正常连接"></span>
+          </div>
           <span class="sp-version">官方生产级规范</span>
         </div>
       </div>
       <div class="sp-actions">
-        <button id="sp-btn-history-toggle" class="sp-icon-btn" title="查看历史记录">
+        <button id="sp-btn-favorites-toggle" class="sp-icon-btn" title="查看收藏的提示词">
+          ★
+        </button>
+        <button id="sp-btn-history-toggle" class="sp-icon-btn" title="查看生成历史">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
             <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
           </svg>
@@ -49,8 +55,8 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p><strong>拖拽多张图片至此</strong> 或点击批量上传</p>
-            <span class="sp-dropzone-sub">支持同时多选、截图连续粘贴 (Ctrl+V)</span>
+            <p><strong>拖拽多张参考图至此</strong> 或点击批量上传</p>
+            <span class="sp-dropzone-sub">支持同时多选、截图连续粘贴 (Ctrl+V，最多6张)</span>
           </div>
           <input type="file" id="sp-file-input" accept="image/*" multiple style="display:none;" />
         </div>
@@ -58,13 +64,41 @@
         <div class="sp-img-gallery" id="sp-img-gallery" style="display:none;">
           <div class="sp-gallery-header">
             <span id="sp-gallery-title">已载入参考图 (0/6)</span>
-            <button type="button" class="sp-text-btn-danger" id="sp-gallery-clear">清空全部</button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="sp-text-btn" id="sp-open-sketch">✏️ 涂鸦板</button>
+              <button type="button" class="sp-text-btn-danger" id="sp-gallery-clear">清空</button>
+            </div>
           </div>
           <div class="sp-gallery-list" id="sp-gallery-list">
             <!-- Dynamically populated -->
             <div class="sp-gallery-add" id="sp-gallery-add-btn" title="添加更多参考图">
               <span style="font-size: 16px;">+</span>
               <span>加图</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2D Sketch Board Drawer -->
+        <div class="sp-sketch-box" id="sp-sketch-box" style="display:none;">
+          <div class="sp-sketch-header">
+            <span>✏️ 快速构图涂鸦 (辅助空间布局)</span>
+            <button type="button" class="sp-text-btn" id="sp-close-sketch">✕</button>
+          </div>
+          <div class="sp-sketch-canvas-wrap">
+            <canvas id="sp-sketch-canvas" class="sp-sketch-canvas" width="340" height="170"></canvas>
+          </div>
+          <div class="sp-sketch-tools">
+            <div class="sp-sketch-colors">
+              <div class="sp-color-dot active" data-color="#1a1a1a" style="background:#1a1a1a;"></div>
+              <div class="sp-color-dot" data-color="#64748b" style="background:#64748b;"></div>
+              <div class="sp-color-dot" data-color="#2563eb" style="background:#2563eb;"></div>
+              <div class="sp-color-dot" data-color="#ef4444" style="background:#ef4444;"></div>
+              <div class="sp-color-dot" data-color="#10a37f" style="background:#10a37f;"></div>
+              <div class="sp-color-dot" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="橡皮擦"></div>
+            </div>
+            <div class="sp-sketch-actions">
+              <button type="button" class="sp-btn-sm" id="sp-sketch-clear">清空</button>
+              <button type="button" class="sp-btn-sm sp-btn-sm-primary" id="sp-sketch-confirm">✓ 导入</button>
             </div>
           </div>
         </div>
@@ -81,8 +115,23 @@
             id="sp-rough-input"
             class="sp-textarea"
             rows="3"
-            placeholder="例如：一个穿西装的柴犬在东京街头端着一杯咖啡，雨后倒影，微距摄影..."
+            placeholder="例如：一个穿西装的柴犬在东京街头端着一杯咖啡，雨后倒影，电影级微距摄影..."
           ></textarea>
+        </div>
+      </section>
+
+      <!-- Aspect Ratio Selection -->
+      <section class="sp-section">
+        <label class="sp-label">
+          <span>📐 画幅画质比例</span>
+          <span class="sp-label-hint">自动注入对应景别构图语言</span>
+        </label>
+        <div class="sp-ratio-group" id="sp-ratio-group">
+          <button class="sp-ratio-pill" data-ratio="1:1">1:1 方形头像</button>
+          <button class="sp-ratio-pill active" data-ratio="16:9">16:9 横版宽幅</button>
+          <button class="sp-ratio-pill" data-ratio="9:16">9:16 竖版壁纸</button>
+          <button class="sp-ratio-pill" data-ratio="4:3">4:3 经典摄影</button>
+          <button class="sp-ratio-pill" data-ratio="21:9">21:9 宽银幕电影</button>
         </div>
       </section>
 
@@ -100,6 +149,21 @@
         </div>
       </section>
 
+      <!-- Negative Constraints / Avoid Tags -->
+      <section class="sp-section">
+        <label class="sp-label">
+          <span>🚫 严禁与避坑约束 (负向剔除)</span>
+          <span class="sp-label-hint">点击激活，精准过滤</span>
+        </label>
+        <div class="sp-avoid-group" id="sp-avoid-group">
+          <button class="sp-avoid-pill" data-avoid="无乱码文字或水印 (no text artifacts/watermarks)">🔤 无乱码文字水印</button>
+          <button class="sp-avoid-pill" data-avoid="肢体结构正常手部精细 (anatomically correct hands and fingers)">✋ 规避手指畸形</button>
+          <button class="sp-avoid-pill" data-avoid="背景纯净无杂乱干扰 (clean uncluttered background)">🧹 纯净不杂乱</button>
+          <button class="sp-avoid-pill" data-avoid="避免廉价塑料CG质感 (avoid cheap plastic 3d gloss)">✨ 拒绝塑料CG假感</button>
+          <button class="sp-avoid-pill" data-avoid="画面清晰拒绝低分辨率模糊 (no blurry or pixelated details)">🔍 拒绝低清模糊</button>
+        </div>
+      </section>
+
       <!-- Generate Button -->
       <div class="sp-action-area">
         <button class="sp-btn-primary" id="sp-btn-generate">
@@ -114,7 +178,13 @@
       <section class="sp-result-card" id="sp-result-card" style="display:none;">
         <div class="sp-result-header">
           <div class="sp-result-badge">✨ 优化后生产级 Prompt</div>
-          <button class="sp-btn-copy" id="sp-btn-copy-main">📋 一键复制</button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="sp-star-btn" id="sp-btn-star" title="收藏此提示词">
+              <span class="sp-star-icon">★</span>
+              <span class="sp-star-text">收藏</span>
+            </button>
+            <button class="sp-btn-copy" id="sp-btn-copy-main">📋 一键复制</button>
+          </div>
         </div>
         <div class="sp-prompt-output" id="sp-prompt-output"></div>
 
@@ -144,6 +214,19 @@
         </div>
       </div>
       <div class="sp-history-list" id="sp-history-list">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Favorites Drawer View -->
+    <div class="sp-history-view" id="sp-favorites-view" style="display:none;">
+      <div class="sp-history-header">
+        <h2>⭐ 我的收藏夹</h2>
+        <div class="sp-history-actions">
+          <button id="sp-btn-close-favorites" class="sp-icon-btn">✕</button>
+        </div>
+      </div>
+      <div class="sp-history-list" id="sp-favorites-list">
         <!-- Injected dynamically -->
       </div>
     </div>

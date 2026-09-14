@@ -1,16 +1,23 @@
 /**
  * Sidepanel Workspace Controller
+ * ChatGPT Images 2.5 Prompt Enhancer & Creative Assistant
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   let attachedImages = []; // Array of base64 strings
   let activeMode = 'new';
   let activeStyle = 'photorealistic';
+  let activeAspectRatio = '16:9';
+  let activeAvoidTags = [];
   let currentOptimizedPrompt = '';
+  let currentResultData = null;
 
   // Elements
   const modeTabs = document.querySelectorAll('.sp-mode-tab');
-  const stylePills = document.querySelectorAll('.sp-pill');
+  const stylePills = document.querySelectorAll('#sp-style-pills .sp-pill');
+  const ratioPills = document.querySelectorAll('#sp-ratio-group .sp-ratio-pill');
+  const avoidPills = document.querySelectorAll('#sp-avoid-group .sp-avoid-pill');
+
   const dropzone = document.getElementById('sp-dropzone');
   const fileInput = document.getElementById('sp-file-input');
   const galleryWrap = document.getElementById('sp-img-gallery');
@@ -19,23 +26,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   const galleryClearBtn = document.getElementById('sp-gallery-clear');
   const galleryAddBtn = document.getElementById('sp-gallery-add-btn');
 
+  // Sketch Elements
+  const openSketchBtn = document.getElementById('sp-open-sketch');
+  const closeSketchBtn = document.getElementById('sp-close-sketch');
+  const sketchBox = document.getElementById('sp-sketch-box');
+  const sketchCanvas = document.getElementById('sp-sketch-canvas');
+  const sketchClearBtn = document.getElementById('sp-sketch-clear');
+  const sketchConfirmBtn = document.getElementById('sp-sketch-confirm');
+  const sketchColors = document.querySelectorAll('.sp-color-dot');
+
   const roughInput = document.getElementById('sp-rough-input');
   const btnGenerate = document.getElementById('sp-btn-generate');
   const genText = document.getElementById('sp-gen-text');
   const resultCard = document.getElementById('sp-result-card');
   const promptOutput = document.getElementById('sp-prompt-output');
   const btnCopyMain = document.getElementById('sp-btn-copy-main');
+  const btnStar = document.getElementById('sp-btn-star');
   const breakdownBody = document.getElementById('sp-breakdown-body');
   const variationsCard = document.getElementById('sp-variations');
   const variationsList = document.getElementById('sp-variations-list');
   const toast = document.getElementById('sp-toast');
 
-  // History & Settings
+  // History & Favorites & Settings
   const btnHistoryToggle = document.getElementById('sp-btn-history-toggle');
   const btnCloseHistory = document.getElementById('sp-btn-close-history');
   const historyView = document.getElementById('sp-history-view');
   const historyList = document.getElementById('sp-history-list');
   const btnClearHistory = document.getElementById('sp-btn-clear-history');
+
+  const btnFavoritesToggle = document.getElementById('sp-btn-favorites-toggle');
+  const btnCloseFavorites = document.getElementById('sp-btn-close-favorites');
+  const favoritesView = document.getElementById('sp-favorites-view');
+  const favoritesList = document.getElementById('sp-favorites-list');
+
   const btnSettings = document.getElementById('sp-btn-settings');
 
   // Check for pending image sent from right-click context menu
@@ -59,7 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.sendMessage({ action: 'FETCH_IMAGE_AS_BASE64', url }, (response) => {
       if (response && response.success && response.base64) {
         addAttachedImage(response.base64);
-        showToast('已载入网页右键选中的参考图片！');
+        showToast('已载入网页选中的参考图片！');
       }
     });
   }
@@ -79,6 +102,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       stylePills.forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
       activeStyle = pill.dataset.style;
+    });
+  });
+
+  // Ratio Pills
+  ratioPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      ratioPills.forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeAspectRatio = pill.dataset.ratio;
+    });
+  });
+
+  // Avoid Negative Tags (Multiple toggle)
+  avoidPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      pill.classList.toggle('active');
+      const tag = pill.dataset.avoid;
+      if (pill.classList.contains('active')) {
+        if (!activeAvoidTags.includes(tag)) activeAvoidTags.push(tag);
+      } else {
+        activeAvoidTags = activeAvoidTags.filter(t => t !== tag);
+      }
     });
   });
 
@@ -159,7 +204,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     galleryWrap.style.display = 'flex';
     galleryTitle.textContent = `已载入参考图 (${attachedImages.length}/6)`;
 
-    // Clear existing thumbnail items except the + add button
     const items = galleryList.querySelectorAll('.sp-gallery-item');
     items.forEach(it => it.remove());
 
@@ -180,11 +224,104 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // --- 2D Sketch Board Drawer Logic ---
+  const sCtx = sketchCanvas.getContext('2d');
+  let isDrawing = false;
+  let currentColor = '#1a1a1a';
+  let currentLineWidth = 4;
+
+  function resetSketch() {
+    sCtx.fillStyle = '#ffffff';
+    sCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
+  }
+  resetSketch();
+
+  openSketchBtn.addEventListener('click', () => {
+    sketchBox.style.display = 'flex';
+  });
+
+  closeSketchBtn.addEventListener('click', () => {
+    sketchBox.style.display = 'none';
+  });
+
+  sketchColors.forEach((dot) => {
+    dot.addEventListener('click', () => {
+      sketchColors.forEach((d) => d.classList.remove('active'));
+      dot.classList.add('active');
+      currentColor = dot.dataset.color;
+      currentLineWidth = currentColor === '#ffffff' ? 14 : 4;
+    });
+  });
+
+  function getCanvasCoords(e) {
+    const rect = sketchCanvas.getBoundingClientRect();
+    const scaleX = sketchCanvas.width / rect.width;
+    const scaleY = sketchCanvas.height / rect.height;
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+    if (e.touches && e.touches[0]) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  function startDraw(e) {
+    isDrawing = true;
+    const coords = getCanvasCoords(e);
+    sCtx.beginPath();
+    sCtx.moveTo(coords.x, coords.y);
+    sCtx.strokeStyle = currentColor;
+    sCtx.lineWidth = currentLineWidth;
+    sCtx.lineCap = 'round';
+    sCtx.lineJoin = 'round';
+  }
+
+  function moveDraw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const coords = getCanvasCoords(e);
+    sCtx.lineTo(coords.x, coords.y);
+    sCtx.stroke();
+  }
+
+  function endDraw() {
+    if (isDrawing) {
+      sCtx.closePath();
+      isDrawing = false;
+    }
+  }
+
+  sketchCanvas.addEventListener('mousedown', startDraw);
+  sketchCanvas.addEventListener('mousemove', moveDraw);
+  sketchCanvas.addEventListener('mouseup', endDraw);
+  sketchCanvas.addEventListener('mouseleave', endDraw);
+
+  sketchCanvas.addEventListener('touchstart', startDraw, { passive: false });
+  sketchCanvas.addEventListener('touchmove', moveDraw, { passive: false });
+  sketchCanvas.addEventListener('touchend', endDraw);
+
+  sketchClearBtn.addEventListener('click', resetSketch);
+
+  sketchConfirmBtn.addEventListener('click', () => {
+    const sketchData = sketchCanvas.toDataURL('image/png');
+    if (attachedImages.length >= 6) {
+      showToast('参考图已达到上限(6张)');
+      return;
+    }
+    addAttachedImage(sketchData);
+    sketchBox.style.display = 'none';
+    showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
+  });
+
   // Generate Action
   btnGenerate.addEventListener('click', async () => {
     const rough = roughInput.value.trim();
     if (!rough && attachedImages.length === 0) {
-      showToast('请先输入简写想法或上传参考图');
+      showToast('请先输入粗略想法或上传参考图');
       return;
     }
 
@@ -198,11 +335,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         roughPrompt: rough,
         images: attachedImages,
         mode: activeMode,
-        style: activeStyle
+        style: activeStyle,
+        aspectRatio: activeAspectRatio,
+        avoidTags: activeAvoidTags
       });
 
+      currentResultData = result;
       currentOptimizedPrompt = result.optimizedPrompt;
       promptOutput.textContent = currentOptimizedPrompt;
+
+      // Reset star button state
+      btnStar.classList.remove('starred');
+      btnStar.querySelector('.sp-star-text').textContent = '收藏';
 
       // Render Breakdown
       renderBreakdown(result);
@@ -235,6 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         optimizedPrompt: currentOptimizedPrompt,
         styleTag: result.styleTag,
         mode: activeMode,
+        aspectRatio: activeAspectRatio,
         hasImage: attachedImages.length > 0,
         imageCount: attachedImages.length
       });
@@ -265,6 +410,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     breakdownBody.innerHTML = html;
   }
+
+  // Star Favorite
+  btnStar.addEventListener('click', async () => {
+    if (!currentOptimizedPrompt) return;
+    try {
+      const isAdded = await StorageHelper.toggleFavorite({
+        optimizedPrompt: currentOptimizedPrompt,
+        chineseSummary: currentResultData?.chineseSummary || '',
+        styleTag: currentResultData?.styleTag || activeStyle,
+        mode: activeMode,
+        aspectRatio: activeAspectRatio
+      });
+      if (isAdded) {
+        btnStar.classList.add('starred');
+        btnStar.querySelector('.sp-star-text').textContent = '已收藏';
+        showToast('★ 已成功添加到收藏夹！');
+      } else {
+        btnStar.classList.remove('starred');
+        btnStar.querySelector('.sp-star-text').textContent = '收藏';
+        showToast('已取消收藏');
+      }
+    } catch (e) {
+      showToast('收藏失败: ' + e.message);
+    }
+  });
 
   // Copy Main
   btnCopyMain.addEventListener('click', () => {
@@ -320,6 +490,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('已载入并复制选中的历史提示词！');
       });
       historyList.appendChild(card);
+    });
+  }
+
+  // Favorites Drawer
+  btnFavoritesToggle.addEventListener('click', async () => {
+    await renderFavorites();
+    favoritesView.style.display = 'flex';
+  });
+
+  btnCloseFavorites.addEventListener('click', () => {
+    favoritesView.style.display = 'none';
+  });
+
+  async function renderFavorites() {
+    const favs = await StorageHelper.getFavorites();
+    if (favs.length === 0) {
+      favoritesList.innerHTML = '<div style="text-align:center; color:var(--text-secondary); padding:30px 0;">暂无收藏提示词，点击结果卡的 ★ 即可收藏</div>';
+      return;
+    }
+
+    favoritesList.innerHTML = '';
+    favs.forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'sp-history-card';
+      const timeStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+      card.innerHTML = `
+        <div class="sp-history-meta">
+          <span style="color:#f59e0b; font-weight:600;">★ ${item.styleTag || '精选'} ${item.aspectRatio ? '· ' + item.aspectRatio : ''}</span>
+          <span>${timeStr}</span>
+        </div>
+        <div class="sp-history-text">${item.optimizedPrompt}</div>
+        ${item.chineseSummary ? `<div style="font-size:11px; opacity:0.75; margin-top:4px;">${item.chineseSummary}</div>` : ''}
+      `;
+      card.addEventListener('click', () => {
+        currentOptimizedPrompt = item.optimizedPrompt;
+        promptOutput.textContent = item.optimizedPrompt;
+        resultCard.style.display = 'flex';
+        favoritesView.style.display = 'none';
+        navigator.clipboard.writeText(item.optimizedPrompt);
+        showToast('已载入并复制收藏的提示词！');
+      });
+      favoritesList.appendChild(card);
     });
   }
 

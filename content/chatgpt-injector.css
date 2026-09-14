@@ -494,3 +494,242 @@
 .pm-toast.show {
   opacity: 1;
 }
+
+/* Aspect Ratio Selector */
+.pm-feature-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pm-feature-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.pm-ratio-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pm-ratio-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  background: rgba(128, 128, 128, 0.05);
+  cursor: pointer;
+  transition: all 0.15s;
+  color: inherit;
+  user-select: none;
+}
+
+.pm-ratio-pill:hover {
+  border-color: #10a37f;
+}
+
+.pm-ratio-pill.active {
+  background: #10a37f;
+  color: #fff;
+  border-color: #10a37f;
+  font-weight: 600;
+}
+
+/* Avoid Negative Pills */
+.pm-avoid-group {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.pm-avoid-pill {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  background: rgba(128, 128, 128, 0.05);
+  cursor: pointer;
+  transition: all 0.15s;
+  color: inherit;
+  opacity: 0.75;
+  user-select: none;
+}
+
+.pm-avoid-pill:hover {
+  opacity: 1;
+  border-color: #ef4444;
+}
+
+.pm-avoid-pill.active {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: #ef4444;
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* In-Chat Generated Image Re-prompt Floating Button */
+.pm-inchat-btn-wrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+div:hover > .pm-inchat-btn-wrap,
+button:hover > .pm-inchat-btn-wrap,
+.group:hover .pm-inchat-btn-wrap {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.pm-inchat-reprompt-btn {
+  background: rgba(16, 163, 127, 0.95);
+  color: #fff;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.pm-inchat-reprompt-btn:hover {
+  background: #10a37f;
+  transform: scale(1.05);
+}
+
+/* Sketch Box */
+.pm-sketch-box {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(128, 128, 128, 0.08);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.pm-sketch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.pm-sketch-canvas-wrap {
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+}
+
+.pm-sketch-canvas {
+  display: block;
+  cursor: crosshair;
+  background: #ffffff;
+}
+
+.pm-sketch-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pm-sketch-colors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s;
+}
+
+.pm-color-dot.active {
+  border-color: #10a37f;
+  transform: scale(1.2);
+}
+
+.pm-sketch-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pm-btn-sm {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  background: rgba(128, 128, 128, 0.1);
+  color: inherit;
+}
+
+.pm-btn-sm-primary {
+  background: #10a37f;
+  color: #fff;
+  border-color: #10a37f;
+  font-weight: 600;
+}
+
+/* Status Beacon */
+.pm-status-beacon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+.pm-status-beacon.error {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+/* Favorite Star Button */
+.pm-star-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--text-secondary, #888);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.pm-star-btn:hover, .pm-star-btn.starred {
+  color: #f59e0b;
+}
+
