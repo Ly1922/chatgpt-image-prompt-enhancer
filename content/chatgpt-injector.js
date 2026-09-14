@@ -21,6 +21,7 @@
     injectTriggerButton();
     setupKeyboardShortcut();
     observeChatImages();
+    setupGlobalPasteListener();
   }
 
   /**
@@ -32,6 +33,97 @@
       observeChatImages();
     });
     observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  /**
+   * Setup global capture-phase paste listener
+   * Capture phase (true) ensures we intercept clipboard events before ChatGPT's SPA can hijack them.
+   * Works anywhere in the window without needing to click or focus the modal first!
+   */
+  function setupGlobalPasteListener() {
+    window.addEventListener('paste', handleGlobalClipboardPaste, true);
+  }
+
+  function handleGlobalClipboardPaste(e) {
+    // Only capture when our modal is actively open
+    if (!currentModal || !currentModal.classList.contains('active')) return;
+
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const imageFiles = [];
+
+    // 1. Check clipboard items (e.g. screenshots from Snip / WeChat / QQ / PrintScreen)
+    if (clipboardData.items) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+    }
+
+    // 2. Check clipboard files (for files copied directly from OS desktop or file manager)
+    if (imageFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const file = clipboardData.files[i];
+        if (file.type && file.type.startsWith('image/')) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    // If image files are detected, immediately consume and prevent ChatGPT from interfering
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      handleImageFilesBatch(imageFiles);
+    }
+  }
+
+  /**
+   * Batch process image files for seamless consecutive pasting
+   */
+  function handleImageFilesBatch(files) {
+    const fileList = Array.from(files).filter(f => f && f.type && f.type.startsWith('image/'));
+    if (fileList.length === 0) return;
+
+    const remaining = 6 - attachedImages.length;
+    if (remaining <= 0) {
+      showToast('⚠️ 参考图已达上限 (最多6张)，请删除不需要的图片后再粘贴');
+      return;
+    }
+
+    const toProcess = fileList.slice(0, remaining);
+    if (fileList.length > remaining) {
+      showToast(`超出上限，本次仅添加前 ${remaining} 张参考图`);
+    }
+
+    let processedCount = 0;
+    toProcess.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        attachedImages.push(e.target.result);
+        processedCount++;
+        if (processedCount === toProcess.length) {
+          if (currentModal && typeof currentModal.updateGalleryUI === 'function') {
+            currentModal.updateGalleryUI();
+          }
+          // Switch to reference mode without stealing keyboard focus
+          if (activeMode === 'new') {
+            activeMode = 'reference';
+            if (currentModal) {
+              const tabs = currentModal.querySelectorAll('.pm-mode-tab');
+              tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+            }
+          }
+          showToast(`✅ 已连续载入参考图 (${attachedImages.length}/6)`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   /**
@@ -198,6 +290,9 @@
     }
 
     currentModal.classList.add('active');
+    currentModal.setAttribute('tabindex', '-1');
+    currentModal.focus();
+
     setTimeout(() => {
       const input = document.getElementById('pm-user-rough-input');
       if (input) input.focus();
@@ -257,7 +352,7 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <span>拖入多张参考图、点击上传，或直接按 Ctrl+V 粘贴 (最多6张)</span>
+            <span>拖入多张参考图、点击上传，或直接按 Ctrl+V 随时连续粘贴 (最多6张)</span>
             <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
           </div>
 
@@ -270,7 +365,7 @@
               </div>
             </div>
             <div class="pm-gallery-list" id="pm-gallery-list">
-              <div class="pm-gallery-add" id="pm-gallery-add-btn" title="继续添加参考图">
+              <div class="pm-gallery-add" id="pm-gallery-add-btn" title="继续添加参考图 (支持随时按 Ctrl+V)">
                 <span style="font-size: 18px; line-height: 1;">+</span>
                 <span>加图</span>
               </div>
@@ -468,8 +563,7 @@
     galleryAddBtn.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files || []);
-      files.forEach(f => handleImageFile(f));
+      handleImageFilesBatch(e.target.files);
       fileInput.value = '';
     });
 
@@ -486,42 +580,15 @@
       e.preventDefault();
       dropzone.classList.remove('dragover');
       if (e.dataTransfer.files) {
-        Array.from(e.dataTransfer.files).forEach(f => handleImageFile(f));
-      }
-    });
-
-    modal.addEventListener('paste', (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.indexOf('image') !== -1) {
-          const file = item.getAsFile();
-          if (file) handleImageFile(file);
-        }
+        handleImageFilesBatch(e.dataTransfer.files);
       }
     });
 
     galleryClearBtn.addEventListener('click', () => {
       attachedImages = [];
       updateGalleryUI();
+      showToast('已清空所有参考图');
     });
-
-    function handleImageFile(file) {
-      if (attachedImages.length >= 6) {
-        showToast('最多支持添加 6 张参考图');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        attachedImages.push(e.target.result);
-        updateGalleryUI();
-        if (activeMode === 'new') {
-          const refTab = modal.querySelector('[data-mode="reference"]');
-          if (refTab) refTab.click();
-        }
-      };
-      reader.readAsDataURL(file);
-    }
 
     function updateGalleryUI() {
       if (attachedImages.length === 0) {
@@ -657,8 +724,9 @@
       updateGalleryUI();
       sketchBox.style.display = 'none';
       if (activeMode === 'new') {
-        const refTab = modal.querySelector('[data-mode="reference"]');
-        if (refTab) refTab.click();
+        activeMode = 'reference';
+        const tabs = modal.querySelectorAll('.pm-mode-tab');
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
       }
       showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
     });

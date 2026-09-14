@@ -132,8 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   galleryAddBtn.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', (e) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(f => handleFile(f));
+    handleImageFilesBatch(e.target.files);
     fileInput.value = '';
   });
 
@@ -150,47 +149,99 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     dropzone.classList.remove('dragover');
     if (e.dataTransfer.files) {
-      Array.from(e.dataTransfer.files).forEach(f => handleFile(f));
+      handleImageFilesBatch(e.dataTransfer.files);
     }
   });
 
-  // Paste image from clipboard
+  // Global Capture-Phase Paste for Sidepanel
   window.addEventListener('paste', (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.indexOf('image') !== -1) {
-        const file = item.getAsFile();
-        if (file) handleFile(file);
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const imageFiles = [];
+
+    // 1. Check clipboard items
+    if (clipboardData.items) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
       }
     }
-  });
 
-  function handleFile(file) {
-    if (attachedImages.length >= 6) {
-      showToast('最多支持添加 6 张参考图');
+    // 2. Check clipboard files
+    if (imageFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const file = clipboardData.files[i];
+        if (file.type && file.type.startsWith('image/')) {
+          imageFiles.push(file);
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      handleImageFilesBatch(imageFiles);
+    }
+  }, true);
+
+  function handleImageFilesBatch(files) {
+    const fileList = Array.from(files).filter(f => f && f.type && f.type.startsWith('image/'));
+    if (fileList.length === 0) return;
+
+    const remaining = 6 - attachedImages.length;
+    if (remaining <= 0) {
+      showToast('⚠️ 参考图已达上限 (最多6张)');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      addAttachedImage(e.target.result);
-    };
-    reader.readAsDataURL(file);
+
+    const toProcess = fileList.slice(0, remaining);
+    if (fileList.length > remaining) {
+      showToast(`超出上限，本次仅添加前 ${remaining} 张参考图`);
+    }
+
+    let processedCount = 0;
+    toProcess.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        attachedImages.push(e.target.result);
+        processedCount++;
+        if (processedCount === toProcess.length) {
+          updateGalleryUI();
+          if (activeMode === 'new') {
+            activeMode = 'reference';
+            modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
+          }
+          showToast(`✅ 已连续载入参考图 (${attachedImages.length}/6)`);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   function addAttachedImage(base64) {
+    if (attachedImages.length >= 6) {
+      showToast('参考图已达到上限 (6/6)');
+      return;
+    }
     attachedImages.push(base64);
     updateGalleryUI();
 
     if (activeMode === 'new') {
-      const refTab = document.querySelector('[data-mode="reference"]');
-      if (refTab) refTab.click();
+      activeMode = 'reference';
+      modeTabs.forEach(t => t.classList.toggle('active', t.dataset.mode === 'reference'));
     }
+    showToast(`✅ 已载入参考图 (${attachedImages.length}/6)`);
   }
 
   galleryClearBtn.addEventListener('click', () => {
     attachedImages = [];
     updateGalleryUI();
+    showToast('已清空所有参考图');
   });
 
   function updateGalleryUI() {
