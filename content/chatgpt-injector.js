@@ -382,38 +382,9 @@
                 <button type="button" class="pm-tool-btn" id="pm-btn-browse-file" title="选择本地图片文件">
                   📁 选图
                 </button>
-                <button type="button" class="pm-tool-btn" id="pm-open-sketch-btn" title="打开涂鸦构图板">
-                  ✏️ 涂鸦
-                </button>
                 <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
               </div>
               <span class="pm-img-count" id="pm-gallery-title" style="display:none;">(0/6)</span>
-            </div>
-          </div>
-
-          <!-- 2D Sketch Board Drawer (Collapsible) -->
-          <div class="pm-sketch-box" id="pm-sketch-box" style="display:none;">
-            <div class="pm-sketch-header">
-              <span>✏️ 快速构图涂鸦板 (帮助 Images 2.5 定位空间布局)</span>
-              <button type="button" class="pm-btn-sm" id="pm-close-sketch-btn">✕ 关闭</button>
-            </div>
-            <div class="pm-sketch-canvas-wrap">
-              <canvas id="pm-sketch-canvas" class="pm-sketch-canvas" width="460" height="200"></canvas>
-            </div>
-            <div class="pm-sketch-tools">
-              <div class="pm-sketch-colors">
-                <span style="font-size: 11px; opacity: 0.7;">画笔:</span>
-                <div class="pm-color-dot active" data-color="#1a1a1a" style="background:#1a1a1a;"></div>
-                <div class="pm-color-dot" data-color="#64748b" style="background:#64748b;"></div>
-                <div class="pm-color-dot" data-color="#2563eb" style="background:#2563eb;"></div>
-                <div class="pm-color-dot" data-color="#ef4444" style="background:#ef4444;"></div>
-                <div class="pm-color-dot" data-color="#10a37f" style="background:#10a37f;"></div>
-                <div class="pm-color-dot" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="橡皮擦"></div>
-              </div>
-              <div class="pm-sketch-actions">
-                <button type="button" class="pm-btn-sm" id="pm-sketch-clear">清空画布</button>
-                <button type="button" class="pm-btn-sm pm-btn-sm-primary" id="pm-sketch-confirm">✓ 导入为参考图</button>
-              </div>
             </div>
           </div>
 
@@ -702,7 +673,6 @@
     const galleryTitle = modal.querySelector('#pm-gallery-title');
     const galleryClearBtn = modal.querySelector('#pm-gallery-clear');
     const galleryAddBtn = modal.querySelector('#pm-gallery-add-btn');
-    const openSketchBtn = modal.querySelector('#pm-open-sketch-btn');
 
     const btnPasteClipboard = modal.querySelector('#pm-btn-paste-clipboard');
     const btnBrowseFile = modal.querySelector('#pm-btn-browse-file');
@@ -817,113 +787,6 @@
     updateChipTexts();
     updateModeDisplay();
     updateGalleryUI();
-
-    // --- 2D Sketch Board Logic ---
-    const sketchBox = modal.querySelector('#pm-sketch-box');
-    const closeSketchBtn = modal.querySelector('#pm-close-sketch-btn');
-    const sketchCanvas = modal.querySelector('#pm-sketch-canvas');
-    const sketchClearBtn = modal.querySelector('#pm-sketch-clear');
-    const sketchConfirmBtn = modal.querySelector('#pm-sketch-confirm');
-    const colorDots = modal.querySelectorAll('.pm-color-dot');
-
-    const sCtx = sketchCanvas.getContext('2d');
-    let isDrawing = false;
-    let currentColor = '#1a1a1a';
-    let currentLineWidth = 4;
-
-    function resetCanvasBackground() {
-      sCtx.fillStyle = '#ffffff';
-      sCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
-    }
-    resetCanvasBackground();
-
-    openSketchBtn.addEventListener('click', () => {
-      sketchBox.style.display = 'flex';
-    });
-
-    closeSketchBtn.addEventListener('click', () => {
-      sketchBox.style.display = 'none';
-    });
-
-    colorDots.forEach((dot) => {
-      dot.addEventListener('click', () => {
-        colorDots.forEach((d) => d.classList.remove('active'));
-        dot.classList.add('active');
-        currentColor = dot.dataset.color;
-        currentLineWidth = currentColor === '#ffffff' ? 14 : 4;
-      });
-    });
-
-    function getCanvasCoords(e) {
-      const rect = sketchCanvas.getBoundingClientRect();
-      const scaleX = sketchCanvas.width / rect.width;
-      const scaleY = sketchCanvas.height / rect.height;
-      let clientX = e.clientX;
-      let clientY = e.clientY;
-      if (e.touches && e.touches[0]) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      }
-      return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
-      };
-    }
-
-    function startDraw(e) {
-      isDrawing = true;
-      const coords = getCanvasCoords(e);
-      sCtx.beginPath();
-      sCtx.moveTo(coords.x, coords.y);
-      sCtx.strokeStyle = currentColor;
-      sCtx.lineWidth = currentLineWidth;
-      sCtx.lineCap = 'round';
-      sCtx.lineJoin = 'round';
-    }
-
-    function moveDraw(e) {
-      if (!isDrawing) return;
-      e.preventDefault();
-      const coords = getCanvasCoords(e);
-      sCtx.lineTo(coords.x, coords.y);
-      sCtx.stroke();
-    }
-
-    function endDraw() {
-      if (isDrawing) {
-        sCtx.closePath();
-        isDrawing = false;
-      }
-    }
-
-    sketchCanvas.addEventListener('mousedown', startDraw);
-    sketchCanvas.addEventListener('mousemove', moveDraw);
-    sketchCanvas.addEventListener('mouseup', endDraw);
-    sketchCanvas.addEventListener('mouseleave', endDraw);
-
-    sketchCanvas.addEventListener('touchstart', startDraw, { passive: false });
-    sketchCanvas.addEventListener('touchmove', moveDraw, { passive: false });
-    sketchCanvas.addEventListener('touchend', endDraw);
-
-    sketchClearBtn.addEventListener('click', () => {
-      resetCanvasBackground();
-    });
-
-    sketchConfirmBtn.addEventListener('click', () => {
-      const sketchDataUrl = sketchCanvas.toDataURL('image/png');
-      if (attachedImages.length >= 6) {
-        showToast('参考图已达到上限(6张)，请先删除部分参考图');
-        return;
-      }
-      attachedImages.push(sketchDataUrl);
-      updateGalleryUI();
-      sketchBox.style.display = 'none';
-      if (activeMode === 'new') {
-        activeMode = 'reference';
-        updateModeDisplay();
-      }
-      showToast('🎨 涂鸦草图已成功导入为空间布局参考！');
-    });
 
     // Generate Button
     const genBtn = modal.querySelector('#pm-generate-btn');

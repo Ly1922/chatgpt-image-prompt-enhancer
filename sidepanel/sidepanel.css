@@ -488,73 +488,7 @@ body {
   font-weight: 600;
 }
 
-/* 2D Sketch Board Drawer */
-.sp-sketch-box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 10px;
-}
-
-.sp-sketch-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.sp-sketch-canvas-wrap {
-  background: #ffffff;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--surface-border);
-  touch-action: none;
-  display: flex;
-  justify-content: center;
-}
-
-.sp-sketch-canvas {
-  display: block;
-  cursor: crosshair;
-  background: #ffffff;
-  max-width: 100%;
-}
-
-.sp-sketch-tools {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.sp-sketch-colors {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.sp-color-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid transparent;
-  transition: transform 0.15s;
-}
-
-.sp-color-dot.active {
-  border-color: var(--primary);
-  transform: scale(1.2);
-}
-
-.sp-sketch-actions {
-  display: flex;
-  gap: 5px;
-}
+/* Compact Button Utilities */
 
 .sp-btn-sm {
   font-size: 11px;

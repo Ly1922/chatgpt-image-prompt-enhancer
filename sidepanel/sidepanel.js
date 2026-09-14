@@ -48,15 +48,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const popoverAvoid = document.getElementById('sp-popover-avoid');
   const avoidPills = document.querySelectorAll('#sp-avoid-group .sp-avoid-pill');
 
-  // Sketch Elements
-  const openSketchBtn = document.getElementById('sp-open-sketch');
-  const closeSketchBtn = document.getElementById('sp-close-sketch');
-  const sketchBox = document.getElementById('sp-sketch-box');
-  const sketchCanvas = document.getElementById('sp-sketch-canvas');
-  const sketchClearBtn = document.getElementById('sp-sketch-clear');
-  const sketchConfirmBtn = document.getElementById('sp-sketch-confirm');
-  const sketchColors = document.querySelectorAll('.sp-color-dot');
-
   // Generate & Result
   const btnGenerate = document.getElementById('sp-btn-generate');
   const genText = document.getElementById('sp-gen-text');
@@ -422,99 +413,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       galleryList.insertBefore(item, galleryAddBtn);
     });
   }
-
-  // --- 2D Sketch Board Drawer Logic ---
-  const sCtx = sketchCanvas.getContext('2d');
-  let isDrawing = false;
-  let currentColor = '#1a1a1a';
-  let currentLineWidth = 4;
-
-  function resetSketch() {
-    sCtx.fillStyle = '#ffffff';
-    sCtx.fillRect(0, 0, sketchCanvas.width, sketchCanvas.height);
-  }
-  resetSketch();
-
-  openSketchBtn.addEventListener('click', () => {
-    sketchBox.style.display = 'flex';
-  });
-
-  closeSketchBtn.addEventListener('click', () => {
-    sketchBox.style.display = 'none';
-  });
-
-  sketchColors.forEach((dot) => {
-    dot.addEventListener('click', () => {
-      sketchColors.forEach(d => d.classList.remove('active'));
-      dot.classList.add('active');
-      currentColor = dot.dataset.color;
-      currentLineWidth = currentColor === '#ffffff' ? 14 : 4;
-    });
-  });
-
-  function getCanvasCoords(e) {
-    const rect = sketchCanvas.getBoundingClientRect();
-    const scaleX = sketchCanvas.width / rect.width;
-    const scaleY = sketchCanvas.height / rect.height;
-    let clientX = e.clientX;
-    let clientY = e.clientY;
-    if (e.touches && e.touches[0]) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    }
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
-    };
-  }
-
-  function startDraw(e) {
-    isDrawing = true;
-    const coords = getCanvasCoords(e);
-    sCtx.beginPath();
-    sCtx.moveTo(coords.x, coords.y);
-    sCtx.strokeStyle = currentColor;
-    sCtx.lineWidth = currentLineWidth;
-    sCtx.lineCap = 'round';
-    sCtx.lineJoin = 'round';
-  }
-
-  function moveDraw(e) {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const coords = getCanvasCoords(e);
-    sCtx.lineTo(coords.x, coords.y);
-    sCtx.stroke();
-  }
-
-  function endDraw() {
-    if (isDrawing) {
-      sCtx.closePath();
-      isDrawing = false;
-    }
-  }
-
-  sketchCanvas.addEventListener('mousedown', startDraw);
-  sketchCanvas.addEventListener('mousemove', moveDraw);
-  sketchCanvas.addEventListener('mouseup', endDraw);
-  sketchCanvas.addEventListener('mouseleave', endDraw);
-
-  sketchCanvas.addEventListener('touchstart', startDraw, { passive: false });
-  sketchCanvas.addEventListener('touchmove', moveDraw, { passive: false });
-  sketchCanvas.addEventListener('touchend', endDraw);
-
-  sketchClearBtn.addEventListener('click', resetSketch);
-
-  sketchConfirmBtn.addEventListener('click', () => {
-    const sketchData = sketchCanvas.toDataURL('image/png');
-    if (attachedImages.length >= 6) {
-      showToast('参考图已达到上限(6张)');
-      return;
-    }
-    addAttachedImage(sketchData);
-    sketchBox.style.display = 'none';
-    showToast('🎨 涂鸦草图已成功导入为参考图！');
-  });
 
   // --- Generate Action ---
   btnGenerate.addEventListener('click', async () => {

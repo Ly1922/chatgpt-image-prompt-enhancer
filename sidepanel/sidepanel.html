@@ -80,37 +80,9 @@
             <button type="button" class="sp-tool-btn" id="sp-btn-browse-file" title="选择本地图片文件">
               📁 选图
             </button>
-            <button type="button" class="sp-tool-btn" id="sp-open-sketch" title="打开涂鸦构图板">
-              ✏️ 涂鸦
-            </button>
             <input type="file" id="sp-file-input" accept="image/*" multiple style="display:none;" />
           </div>
           <span class="sp-img-count" id="sp-gallery-title" style="display:none;">(0/6)</span>
-        </div>
-      </div>
-
-      <!-- 2D Sketch Board Drawer (Collapsible) -->
-      <div class="sp-sketch-box" id="sp-sketch-box" style="display:none;">
-        <div class="sp-sketch-header">
-          <span>✏️ 空间布局涂鸦板</span>
-          <button type="button" class="sp-text-btn" id="sp-close-sketch">✕ 关闭</button>
-        </div>
-        <div class="sp-sketch-canvas-wrap">
-          <canvas id="sp-sketch-canvas" class="sp-sketch-canvas" width="340" height="160"></canvas>
-        </div>
-        <div class="sp-sketch-tools">
-          <div class="sp-sketch-colors">
-            <div class="sp-color-dot active" data-color="#1a1a1a" style="background:#1a1a1a;"></div>
-            <div class="sp-color-dot" data-color="#64748b" style="background:#64748b;"></div>
-            <div class="sp-color-dot" data-color="#2563eb" style="background:#2563eb;"></div>
-            <div class="sp-color-dot" data-color="#ef4444" style="background:#ef4444;"></div>
-            <div class="sp-color-dot" data-color="#10a37f" style="background:#10a37f;"></div>
-            <div class="sp-color-dot" data-color="#ffffff" style="background:#ffffff; border:1px solid #ccc;" title="橡皮擦"></div>
-          </div>
-          <div class="sp-sketch-actions">
-            <button type="button" class="sp-btn-sm" id="sp-sketch-clear">清空</button>
-            <button type="button" class="sp-btn-sm sp-btn-sm-primary" id="sp-sketch-confirm">✓ 导入参考图</button>
-          </div>
         </div>
       </div>
 
