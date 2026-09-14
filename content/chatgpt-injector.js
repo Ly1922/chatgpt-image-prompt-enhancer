@@ -384,13 +384,18 @@
                 <button type="button" class="pm-tool-btn" id="pm-btn-browse-file" title="选择本地图片文件">
                   📁 选图
                 </button>
-                <button type="button" class="pm-tool-btn pm-tool-btn-highlight" id="pm-btn-reverse-prompt" title="一键逆向反推参考图提示词" style="display:none;">
+                <button type="button" class="pm-tool-btn pm-tool-btn-highlight" id="pm-btn-reverse-prompt" title="一键客观逆向反推（纯粹提取原图真实画风、构图与镜头，不代入下方预设）" style="display:none;">
                   🔍 识图反推
                 </button>
                 <input type="file" id="pm-file-input" accept="image/*" multiple style="display:none;" />
               </div>
               <span class="pm-img-count" id="pm-gallery-title" style="display:none;">(0/6)</span>
             </div>
+          </div>
+
+          <!-- Capsule Strip Label Hint -->
+          <div class="pm-capsule-label">
+            <span>🎨 生图定制预设 (全新构思/垫图时生效，反推时不代入)</span>
           </div>
 
           <!-- Compact Parameter Capsule Strip (One Single Line!) -->
@@ -916,9 +921,7 @@
         const result = await ApiClient.optimizePrompt({
           roughPrompt: '',
           images: attachedImages,
-          mode: 'describe',
-          aspectRatio: activeAspectRatio,
-          composition: activeComposition !== 'auto' ? activeComposition : undefined
+          mode: 'describe'
         });
 
         lastResultData = result;
@@ -951,12 +954,12 @@
           optimizedPrompt: lastOptimizedPrompt,
           styleTag: result.styleTag || '识图反推',
           mode: 'describe',
-          aspectRatio: activeAspectRatio,
+          aspectRatio: '原图实际比例',
           hasImage: true,
           imageCount: attachedImages.length
         });
 
-        showToast('🎉 识图反推成功！已提炼生产级 Prompt 与替换模板');
+        showToast('🎉 识图反推成功！已纯粹客观提取原图画风与构图（无预设干扰）');
       } catch (err) {
         showToast('反推失败: ' + err.message);
       } finally {

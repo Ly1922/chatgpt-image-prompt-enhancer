@@ -945,6 +945,15 @@ button:hover > .pm-inchat-btn-wrap,
   color: #10a37f;
 }
 
+.pm-capsule-label {
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.75;
+  margin: 3px 2px -3px 2px;
+  user-select: none;
+  font-weight: 500;
+}
+
 /* Capsule Strip */
 .pm-capsule-strip {
   display: flex;

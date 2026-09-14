@@ -80,13 +80,18 @@
             <button type="button" class="sp-tool-btn" id="sp-btn-browse-file" title="选择本地图片文件">
               📁 选图
             </button>
-            <button type="button" class="sp-tool-btn sp-tool-btn-highlight" id="sp-btn-reverse-prompt" title="一键逆向反推参考图提示词" style="display:none;">
+            <button type="button" class="sp-tool-btn sp-tool-btn-highlight" id="sp-btn-reverse-prompt" title="一键客观逆向反推（纯粹提取原图真实画风、构图与镜头，不代入下方预设）" style="display:none;">
               🔍 识图反推
             </button>
             <input type="file" id="sp-file-input" accept="image/*" multiple style="display:none;" />
           </div>
           <span class="sp-img-count" id="sp-gallery-title" style="display:none;">(0/6)</span>
         </div>
+      </div>
+
+      <!-- Capsule Strip Label Hint -->
+      <div class="sp-capsule-label">
+        <span>🎨 生图定制预设 (全新构思/垫图时生效，反推时不代入)</span>
       </div>
 
       <!-- Compact Parameter Capsule Strip (One Single Line!) -->

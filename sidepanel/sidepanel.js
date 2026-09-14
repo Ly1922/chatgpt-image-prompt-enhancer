@@ -494,9 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const result = await ApiClient.optimizePrompt({
         roughPrompt: '',
         images: attachedImages,
-        mode: 'describe',
-        aspectRatio: activeAspectRatio,
-        composition: activeComposition !== 'auto' ? activeComposition : undefined
+        mode: 'describe'
       });
 
       currentResultData = result;
@@ -535,12 +533,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         optimizedPrompt: currentOptimizedPrompt,
         styleTag: result.styleTag || '识图反推',
         mode: 'describe',
-        aspectRatio: activeAspectRatio,
+        aspectRatio: '原图实际比例',
         hasImage: true,
         imageCount: attachedImages.length
       });
 
-      showToast('🎉 识图反推成功！已提炼生产级 Prompt');
+      showToast('🎉 识图反推成功！已纯粹客观提取原图画风与构图（无预设干扰）');
     } catch (err) {
       console.error(err);
       showToast('识图反推失败: ' + err.message);

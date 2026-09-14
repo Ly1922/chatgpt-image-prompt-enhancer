@@ -359,6 +359,15 @@ body {
   font-weight: 600;
 }
 
+.sp-capsule-label {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  margin: 3px 2px -4px 2px;
+  user-select: none;
+  font-weight: 500;
+}
+
 /* Compact Parameter Capsule Strip (One Single Line) */
 .sp-capsule-strip {
   display: flex;
